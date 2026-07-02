@@ -1,0 +1,2284 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#2563eb">
+  <title>有給管理システム</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary:        #2563eb;
+      --primary-dark:   #1d4ed8;
+      --primary-light:  #dbeafe;
+      --success:        #059669;
+      --success-light:  #d1fae5;
+      --warning:        #d97706;
+      --warning-light:  #fef3c7;
+      --danger:         #dc2626;
+      --danger-light:   #fee2e2;
+      --gray-50:  #f9fafb;
+      --gray-100: #f3f4f6;
+      --gray-200: #e5e7eb;
+      --gray-300: #d1d5db;
+      --gray-400: #9ca3af;
+      --gray-500: #6b7280;
+      --gray-600: #4b5563;
+      --gray-700: #374151;
+      --gray-800: #1f2937;
+      --gray-900: #111827;
+      --font: 'Hiragino Kaku Gothic ProN', 'ヒラギノ角ゴ ProN W3', Meiryo, sans-serif;
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--gray-50);
+      color: var(--gray-800);
+      min-height: 100vh;
+    }
+
+    .view { display: none; }
+    .view.active { display: block; }
+    #view-login.active { display: flex; }
+
+    /* ══════════ ログイン ══════════ */
+    #view-login {
+      min-height: 100vh;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+      padding: 16px;
+    }
+    .login-card {
+      background: white;
+      border-radius: 16px;
+      padding: 40px 32px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    }
+    .login-card h1 { font-size: 22px; font-weight: 700; color: var(--gray-900); text-align: center; margin-bottom: 6px; }
+    .login-subtitle { font-size: 13px; color: var(--gray-500); text-align: center; margin-bottom: 28px; }
+
+    /* ══════════ ヘッダー ══════════ */
+    .app-header {
+      position: sticky; top: 0; z-index: 100;
+      background: white; border-bottom: 1px solid var(--gray-200);
+      height: 56px; padding: 0 20px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .header-logo { font-size: 15px; font-weight: 700; color: var(--primary); display: flex; align-items: center; gap: 8px; }
+    .header-role { font-size: 10px; background: var(--primary-light); color: var(--primary); padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+    .header-right { display: flex; align-items: center; gap: 12px; }
+    .header-username { font-size: 13px; color: var(--gray-600); }
+
+    /* ══════════ レイアウト ══════════ */
+    .app-body { max-width: 1080px; margin: 0 auto; padding: 22px 20px 60px; }
+    .page-title { font-size: 19px; font-weight: 700; color: var(--gray-900); margin-bottom: 18px; }
+
+    .card {
+      background: white; border-radius: 12px; padding: 20px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.07); margin-bottom: 18px;
+    }
+    .card-title { font-size: 15px; font-weight: 600; color: var(--gray-700); margin-bottom: 14px; }
+    .hint { font-size: 12px; color: var(--gray-400); margin-top: 8px; line-height: 1.6; }
+
+    /* ── サマリー ── */
+    .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+    .summary-card { background: white; border-radius: 12px; padding: 16px 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); text-align: center; }
+    .s-label { font-size: 11px; color: var(--gray-500); margin-bottom: 8px; }
+    .s-value { font-size: 22px; font-weight: 700; color: var(--gray-900); line-height: 1.2; }
+    .summary-card.remaining .s-value { color: var(--primary); }
+    .summary-card.used      .s-value { color: var(--warning); }
+
+    /* ── タブ ── */
+    .tabs {
+      display: flex; gap: 2px; border-bottom: 2px solid var(--gray-200); margin-bottom: 18px;
+      overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none;
+    }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab-btn {
+      padding: 10px 16px; font-size: 14px; font-weight: 500; color: var(--gray-500);
+      background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -2px;
+      cursor: pointer; font-family: var(--font); white-space: nowrap; flex-shrink: 0;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .tab-btn:hover { color: var(--primary); }
+    .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* ── フォーム ── */
+    .form-group { margin-bottom: 13px; }
+    label { display: block; font-size: 12px; font-weight: 600; color: var(--gray-600); margin-bottom: 5px; }
+    input[type="text"], input[type="email"], input[type="password"],
+    input[type="number"], input[type="date"], input[type="time"], select, textarea {
+      width: 100%; padding: 10px 12px;
+      border: 1.5px solid var(--gray-200); border-radius: 8px;
+      font-size: 15px; font-family: var(--font); color: var(--gray-800);
+      background: white; outline: none; transition: border-color 0.15s;
+      -webkit-appearance: none; appearance: none;
+      min-height: 42px;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--primary); }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
+
+    /* ── ボタン ── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+      padding: 10px 18px; border-radius: 8px; font-size: 14px; font-weight: 500;
+      font-family: var(--font); cursor: pointer; border: none;
+      transition: background 0.15s, opacity 0.15s; white-space: nowrap;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-primary:hover:not(:disabled) { background: var(--primary-dark); }
+    .btn-success { background: var(--success); color: white; }
+    .btn-success:hover:not(:disabled) { background: #047857; }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-danger:hover:not(:disabled) { background: #b91c1c; }
+    .btn-ghost { background: transparent; color: var(--gray-600); border: 1.5px solid var(--gray-200); }
+    .btn-ghost:hover:not(:disabled) { background: var(--gray-50); border-color: var(--gray-300); }
+    .btn-sm { padding: 6px 12px; font-size: 12px; min-height: 32px; }
+    .btn-full { width: 100%; margin-top: 6px; }
+
+    /* ── テーブル ── */
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead th {
+      padding: 9px 12px; font-size: 11px; font-weight: 700; color: var(--gray-500);
+      background: var(--gray-50); border-bottom: 1px solid var(--gray-200); white-space: nowrap;
+      text-align: left;
+    }
+    tbody td { padding: 11px 12px; border-bottom: 1px solid var(--gray-100); color: var(--gray-700); vertical-align: middle; }
+    tbody tr:last-child td { border-bottom: none; }
+    .td-actions { display: flex; gap: 6px; align-items: center; }
+
+    /* ── バッジ ── */
+    .badge { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+    .badge-plan  { background: var(--primary-light); color: var(--primary); }
+    .badge-fixed { background: var(--gray-100); color: var(--gray-500); }
+    .badge-kpaid     { background: var(--primary-light); color: var(--primary); }
+    .badge-kbirthday { background: var(--success-light); color: var(--success); }
+    .badge-kcomp     { background: #ede9fe; color: #7c3aed; }
+
+    /* ── 特別休暇サマリー ── */
+    .special-strip {
+      font-size: 13px; color: var(--gray-600);
+      background: white; border-radius: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+      padding: 12px 16px; margin-bottom: 18px;
+    }
+
+    /* ── アラート ── */
+    .alert { padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 13px; }
+    .alert-error   { background: var(--danger-light);  color: var(--danger);  }
+    .alert-success { background: var(--success-light); color: var(--success); }
+
+    .empty, .loading { text-align: center; padding: 32px; color: var(--gray-400); font-size: 13px; }
+
+    .back-btn {
+      display: inline-flex; align-items: center; gap: 5px; color: var(--gray-500);
+      cursor: pointer; font-size: 13px; margin-bottom: 16px; background: none; border: none; font-family: var(--font);
+    }
+    .back-btn:hover { color: var(--primary); }
+
+    .link-btn { color: var(--primary); cursor: pointer; font-size: 12px; background: none; border: none; font-family: var(--font); text-decoration: underline; white-space: nowrap; }
+    .link-btn:hover { color: var(--primary-dark); }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translate(-50%, 90px);
+      background: var(--gray-800); color: white; padding: 12px 18px;
+      border-radius: 10px; font-size: 13px; box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+      opacity: 0; transition: all 0.25s; z-index: 9999; max-width: 90vw; text-align: center;
+    }
+    #toast.show { transform: translate(-50%, 0); opacity: 1; }
+    #toast.error { background: var(--danger); }
+
+    /* ══════════ カレンダー ══════════ */
+    .cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 8px; }
+    .cal-title { font-size: 17px; font-weight: 700; color: var(--gray-900); }
+    .cal-nav-btns { display: flex; gap: 6px; }
+    .cal-nav-btn {
+      background: white; border: 1.5px solid var(--gray-200); border-radius: 8px;
+      width: 38px; height: 38px; font-size: 16px; color: var(--gray-600); cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .cal-nav-btn:hover { border-color: var(--primary); color: var(--primary); }
+    .cal-today-btn { width: auto; padding: 0 12px; font-size: 13px; font-family: var(--font); }
+
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+    .cal-dow { text-align: center; font-size: 11px; font-weight: 700; color: var(--gray-500); padding: 5px 0; }
+    .cal-dow.sun { color: var(--danger); }
+    .cal-dow.sat { color: var(--primary); }
+
+    .cal-cell {
+      background: white; border: 1px solid var(--gray-200); border-radius: 8px;
+      min-height: 67px; padding: 5px; cursor: pointer; overflow: hidden;
+      transition: border-color 0.12s, box-shadow 0.12s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .cal-cell:hover { border-color: var(--primary); box-shadow: 0 1px 6px rgba(37,99,235,0.15); }
+    .cal-cell.blank { background: transparent; border-color: transparent; cursor: default; box-shadow: none; }
+    .cal-cell.past { background: var(--gray-50); }
+    .cal-cell.today { border: 2px solid var(--primary); }
+    .cal-daynum { font-size: 14px; font-weight: 700; color: var(--gray-700); margin-bottom: 3px; }
+    .cal-cell.past .cal-daynum { color: var(--gray-400); }
+    .cal-cell.sun .cal-daynum { color: var(--danger); }
+    .cal-cell.sat .cal-daynum { color: var(--primary); }
+    .cal-cell.today .cal-daynum { color: var(--primary); }
+
+    .cal-chip {
+      border-radius: 4px; padding: 3px 5px; margin-bottom: 3px;
+      font-size: 13px; font-weight: 600; line-height: 1.4;
+      white-space: normal; word-break: break-all;
+    }
+    .cal-chip.leave    { background: var(--primary-light); color: var(--primary-dark); }
+    .cal-chip.birthday { background: var(--success-light); color: var(--success); }
+    .cal-chip.comp     { background: #ede9fe; color: #7c3aed; }
+    .cal-chip.event    { background: var(--warning-light); color: var(--warning); }
+    .cal-chip.bday     { background: #fce7f3; color: #db2777; }
+    .cal-cell.holiday .cal-daynum { color: var(--danger); }
+    .cal-chip.holiday  { background: #fee2e2; color: #b91c1c; font-weight: 700; }
+    .cal-more { font-size: 10px; color: var(--gray-400); padding-left: 2px; }
+
+    .cal-legend { display: flex; flex-wrap: wrap; gap: 10px 16px; margin-top: 10px; font-size: 12px; color: var(--gray-500); }
+    .cal-legend span { display: inline-flex; align-items: center; gap: 5px; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+    /* ══════════ 日付モーダル（ボトムシート） ══════════ */
+    .modal-back {
+      position: fixed; inset: 0; background: rgba(17,24,39,0.5);
+      display: none; z-index: 1000; align-items: flex-end; justify-content: center;
+    }
+    .modal-back.open { display: flex; }
+    .modal-sheet {
+      background: white; width: 100%; max-width: 540px;
+      border-radius: 18px 18px 0 0; max-height: 85vh; overflow-y: auto;
+      padding: 20px 20px calc(24px + env(safe-area-inset-bottom));
+      animation: sheetUp 0.22s ease;
+    }
+    @keyframes sheetUp { from { transform: translateY(60px); opacity: 0.4; } to { transform: none; opacity: 1; } }
+    @media (min-width: 641px) {
+      .modal-back { align-items: center; padding: 20px; }
+      .modal-sheet { border-radius: 16px; padding-bottom: 24px; }
+    }
+    .modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .modal-head h3 { font-size: 17px; font-weight: 700; color: var(--gray-900); }
+    .modal-close { background: var(--gray-100); border: none; border-radius: 50%; width: 32px; height: 32px; font-size: 15px; color: var(--gray-500); cursor: pointer; }
+
+    .dm-section-title { font-size: 12px; font-weight: 700; color: var(--gray-500); margin: 16px 0 8px; }
+    .dm-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 10px 12px; border: 1px solid var(--gray-100); border-radius: 8px; margin-bottom: 6px;
+      font-size: 14px;
+    }
+    .dm-row.leave { background: #f5f9ff; border-color: var(--primary-light); }
+    .dm-row.event { background: #fffbf0; border-color: var(--warning-light); }
+    .dm-sub { font-size: 12px; color: var(--gray-500); }
+    .dm-locked { font-size: 11px; color: var(--gray-400); font-weight: 600; white-space: nowrap; }
+    .dm-empty { font-size: 13px; color: var(--gray-400); padding: 6px 2px; }
+    .dm-actions { display: flex; gap: 8px; margin-top: 18px; flex-wrap: wrap; }
+    .dm-actions .btn { flex: 1; min-width: 130px; }
+    .dm-form { margin-top: 14px; padding: 14px; background: var(--gray-50); border-radius: 10px; display: none; }
+    .dm-form.open { display: block; }
+    .dm-form-title { font-size: 13px; font-weight: 700; color: var(--gray-700); margin-bottom: 10px; }
+
+    /* ══════════ 印刷（月次レポート用） ══════════ */
+    @media print {
+      .app-header, .tabs, .cal-nav-btns, .btn, .back-btn, #toast { display: none !important; }
+      body { background: white; }
+      .app-body { max-width: none; padding: 0; }
+      .card { box-shadow: none; padding: 0; margin: 0; }
+      .view, .tab-content { display: none !important; }
+      .view.active, .tab-content.active { display: block !important; }
+    }
+
+    /* ══════════ モバイル ══════════ */
+    @media (max-width: 640px) {
+      .app-header { padding: 0 12px; height: 52px; }
+      .header-logo { font-size: 13px; }
+      .header-username { display: none; }
+      .app-body { padding: 14px 10px 48px; }
+      .page-title { font-size: 17px; margin-bottom: 14px; }
+      .card { padding: 14px; border-radius: 10px; }
+      .summary-grid { gap: 7px; margin-bottom: 14px; }
+      .summary-card { padding: 12px 4px; }
+      .s-label { font-size: 10px; }
+      .s-value { font-size: 16px; }
+      .form-row { grid-template-columns: 1fr; gap: 0; }
+      input, select, textarea { font-size: 16px; }  /* iOSズーム防止 */
+      table { font-size: 12px; }
+      thead th, tbody td { padding: 8px 8px; }
+      .cal-grid { gap: 2px; }
+      .cal-cell { min-height: 59px; padding: 3px 3px; border-radius: 6px; }
+      .cal-daynum { font-size: 13px; }
+      .cal-chip { font-size: 12px; padding: 2px 4px; line-height: 1.35; }
+      .cal-title { font-size: 15px; }
+      .cal-nav-btn { width: 34px; height: 34px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════ ログイン ══════════════ -->
+<div id="view-login" class="view active">
+  <div class="login-card">
+    <h1>有給管理システム</h1>
+    <p class="login-subtitle">アカウントにログインしてください</p>
+    <div id="login-alert"></div>
+    <div class="form-group">
+      <label>メールアドレス</label>
+      <input type="email" id="login-email" placeholder="staff@clinic.jp" autocomplete="email">
+    </div>
+    <div class="form-group">
+      <label>パスワード</label>
+      <div style="position:relative">
+        <input type="password" id="login-password" placeholder="パスワード" autocomplete="current-password" style="padding-right:48px">
+        <button type="button" onclick="togglePw()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#6b7280;font-size:13px">表示</button>
+      </div>
+    </div>
+    <button class="btn btn-primary btn-full" onclick="doLogin()">ログイン</button>
+    <div style="text-align:center;margin:14px 0 4px;color:var(--gray-400);font-size:12px">─ または ─</div>
+    <button class="btn btn-ghost btn-full" onclick="doViewerLogin()">👀 閲覧用として開く（入力不要）</button>
+    <p class="hint" style="text-align:center">カレンダーの閲覧のみ。登録・変更はできません。</p>
+  </div>
+</div>
+
+<!-- ══════════════ スタッフ画面 ══════════════ -->
+<div id="view-staff" class="view">
+  <header class="app-header">
+    <div class="header-logo">有給管理システム</div>
+    <div class="header-right">
+      <span class="header-username" id="staff-header-name"></span>
+      <button class="btn btn-ghost btn-sm" onclick="doLogout()">ログアウト</button>
+    </div>
+  </header>
+
+  <div class="app-body">
+    <div class="page-title" id="staff-greeting" style="margin-bottom:12px">—</div>
+    <!-- サマリー（有給残・誕生日休・代休） -->
+    <div class="summary-grid">
+      <div class="summary-card remaining">
+        <div class="s-label">有給残</div>
+        <div class="s-value" id="s-remaining">—</div>
+      </div>
+      <div class="summary-card">
+        <div class="s-label">🎂 誕生日休 残</div>
+        <div class="s-value" id="s-bday">—</div>
+      </div>
+      <div class="summary-card">
+        <div class="s-label">🔄 代休 残</div>
+        <div class="s-value" id="s-comp">—</div>
+      </div>
+    </div>
+    <div class="special-strip" id="s-nextgrant" style="background:#eff6ff;border-color:#bfdbfe">次回の法定付与：—</div>
+
+    <!-- タブ -->
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('staff','calendar',this)">カレンダー</button>
+      <button class="tab-btn" onclick="switchTab('staff','taken',this)">取得履歴</button>
+      <button class="tab-btn" onclick="switchTab('staff','grants',this)">付与履歴</button>
+      <button class="tab-btn" onclick="switchTab('staff','account',this)">アカウント</button>
+    </div>
+
+    <!-- カレンダー -->
+    <div id="staff-tab-calendar" class="tab-content active">
+      <div class="card">
+        <div class="cal-nav">
+          <div class="cal-title" id="staff-cal-title">—</div>
+          <div class="cal-nav-btns">
+            <button class="cal-nav-btn" onclick="calMove('staff',-1)">‹</button>
+            <button class="cal-nav-btn cal-today-btn" onclick="calToday('staff')">今日</button>
+            <button class="cal-nav-btn" onclick="calMove('staff',1)">›</button>
+          </div>
+        </div>
+        <div class="cal-grid" id="staff-cal-grid"></div>
+        <div class="cal-legend">
+          <span><span class="legend-dot" style="background:var(--primary-light)"></span>有給</span>
+          <span><span class="legend-dot" style="background:var(--success-light)"></span>誕生日休</span>
+          <span><span class="legend-dot" style="background:#ede9fe"></span>代休</span>
+          <span><span class="legend-dot" style="background:var(--warning-light)"></span>予定</span>
+          <span><span class="legend-dot" style="background:#fce7f3"></span>誕生日</span>
+          <span style="margin-left:auto">日付をタップ</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 取得履歴 -->
+    <div id="staff-tab-taken" class="tab-content">
+      <div class="card">
+        <div class="card-title">取得履歴（予定含む）</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>期間</th><th>種別</th><th>日数</th><th>理由</th><th>状態</th><th></th></tr>
+            </thead>
+            <tbody id="s-taken-body">
+              <tr><td colspan="6" class="loading">読み込み中…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="hint">日付が来る前の有給は「取消」できます。日付が過ぎた有給は確定となり取り消せません。</p>
+      </div>
+    </div>
+
+    <!-- 付与履歴 -->
+    <div id="staff-tab-grants" class="tab-content">
+      <div class="card">
+        <div class="card-title">付与履歴</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>付与日</th><th>種別</th><th>日数</th><th>有効期限</th><th>備考</th></tr>
+            </thead>
+            <tbody id="s-grants-body">
+              <tr><td colspan="5" class="loading">読み込み中…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- アカウント -->
+    <div id="staff-tab-account" class="tab-content">
+      <div class="card">
+        <div class="card-title">メールアドレス変更</div>
+        <div id="s-email-alert"></div>
+        <div class="form-group">
+          <label>現在のメールアドレス</label>
+          <input type="email" id="s-cur-email" disabled>
+        </div>
+        <div class="form-group">
+          <label>新しいメールアドレス</label>
+          <input type="email" id="s-new-email" placeholder="new@example.com" autocomplete="email">
+        </div>
+        <button class="btn btn-primary" onclick="changeMyEmail()">変更する</button>
+        <p class="hint">変更後は新しいメールアドレスでログインしてください。</p>
+      </div>
+      <div class="card">
+        <div class="card-title">パスワード変更</div>
+        <div id="s-pw-alert"></div>
+        <div class="form-group">
+          <label>現在のパスワード</label>
+          <input type="password" id="s-cur-pw" autocomplete="current-password">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>新しいパスワード（8文字以上）</label>
+            <input type="password" id="s-new-pw" autocomplete="new-password">
+          </div>
+          <div class="form-group">
+            <label>新しいパスワード（確認）</label>
+            <input type="password" id="s-new-pw2" autocomplete="new-password">
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="changeMyPassword()">変更する</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ 管理者画面 ══════════════ -->
+<div id="view-admin" class="view">
+  <header class="app-header">
+    <div class="header-logo">有給管理システム <span class="header-role">管理者</span></div>
+    <div class="header-right">
+      <span class="header-username" id="admin-header-name"></span>
+      <button class="btn btn-ghost btn-sm" onclick="doLogout()">ログアウト</button>
+    </div>
+  </header>
+
+  <div class="app-body">
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('admin','calendar',this)">カレンダー</button>
+      <button class="tab-btn" onclick="switchTab('admin','staff',this)">スタッフ一覧</button>
+      <button class="tab-btn" onclick="switchTab('admin','grant',this)">有給付与</button>
+      <button class="tab-btn" onclick="switchTab('admin','report',this)">月次レポート</button>
+    </div>
+
+    <!-- カレンダー -->
+    <div id="admin-tab-calendar" class="tab-content active">
+      <div class="card">
+        <div class="cal-nav">
+          <div class="cal-title" id="admin-cal-title">—</div>
+          <div class="cal-nav-btns">
+            <button class="cal-nav-btn" onclick="calMove('admin',-1)">‹</button>
+            <button class="cal-nav-btn cal-today-btn" onclick="calToday('admin')">今日</button>
+            <button class="cal-nav-btn" onclick="calMove('admin',1)">›</button>
+          </div>
+        </div>
+        <div class="cal-grid" id="admin-cal-grid"></div>
+        <div class="cal-legend">
+          <span><span class="legend-dot" style="background:var(--primary-light)"></span>有給</span>
+          <span><span class="legend-dot" style="background:var(--success-light)"></span>誕生日休</span>
+          <span><span class="legend-dot" style="background:#ede9fe"></span>代休</span>
+          <span><span class="legend-dot" style="background:var(--warning-light)"></span>予定</span>
+          <span><span class="legend-dot" style="background:#fce7f3"></span>誕生日</span>
+          <span style="margin-left:auto">日付をタップ</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- スタッフ一覧 -->
+    <div id="admin-tab-staff" class="tab-content">
+      <div class="card">
+        <div class="card-title">スタッフ一覧</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>氏名</th><th>入職日</th><th>有給付与</th><th>有給取得</th><th>有給残</th><th>特別休暇残</th><th></th></tr>
+            </thead>
+            <tbody id="admin-staff-body">
+              <tr><td colspan="7" class="loading">読み込み中…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="hint">入職日が設定されているスタッフには、法定の付与スケジュール（入職6ヶ月後に10日、以後1年ごとに11・12・14・16・18・20日）に従って自動付与されます。</p>
+      </div>
+    </div>
+
+    <!-- 有給付与（手動） -->
+    <div id="admin-tab-grant" class="tab-content">
+      <div class="card">
+        <div class="card-title">有給付与（手動）</div>
+        <div id="admin-grant-alert"></div>
+        <div class="form-group">
+          <label>スタッフ</label>
+          <select id="a-grant-staff"><option value="">— 選択してください —</option></select>
+        </div>
+        <div class="form-group">
+          <label>休暇の種類</label>
+          <select id="a-grant-kind">
+            <option value="paid">有給休暇</option>
+            <option value="comp">代休（休日当番）</option>
+            <option value="birthday">誕生日休</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>付与日数（日）</label>
+            <input type="number" id="a-grant-days" min="0" max="99" step="0.5" placeholder="例：10">
+          </div>
+          <div class="form-group">
+            <label>＋時間（0〜7）</label>
+            <input type="number" id="a-grant-hours" min="0" max="7" step="1" placeholder="0">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>付与日</label>
+            <input type="date" id="a-grant-date">
+          </div>
+          <div class="form-group">
+            <label>有効期限（任意）</label>
+            <input type="date" id="a-grant-expires">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>備考</label>
+          <input type="text" id="a-grant-note" placeholder="特別付与 など">
+        </div>
+        <button class="btn btn-primary" onclick="adminGrantLeave()">付与する</button>
+        <p class="hint">入職日ベースの法定付与は自動で行われます。ここでは特別付与などの手動追加ができます。</p>
+      </div>
+    </div>
+
+    <!-- 月次レポート -->
+    <div id="admin-tab-report" class="tab-content">
+      <div class="card">
+        <div class="cal-nav">
+          <div class="cal-title" id="report-title">—</div>
+          <div class="cal-nav-btns">
+            <button class="cal-nav-btn" onclick="reportMove(-1)">‹</button>
+            <button class="cal-nav-btn cal-today-btn" onclick="reportMove(0)">今月</button>
+            <button class="cal-nav-btn" onclick="reportMove(1)">›</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:14px">
+          <button class="btn btn-ghost btn-sm" onclick="window.print()">🖨 印刷</button>
+          <button class="btn btn-ghost btn-sm" onclick="downloadReportCSV()">CSVダウンロード</button>
+        </div>
+        <div id="report-body"><div class="loading">読み込み中…</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ 管理者：スタッフ詳細 ══════════════ -->
+<div id="view-detail" class="view">
+  <header class="app-header">
+    <div class="header-logo">有給管理システム <span class="header-role">管理者</span></div>
+    <div class="header-right">
+      <span class="header-username" id="detail-header-name"></span>
+      <button class="btn btn-ghost btn-sm" onclick="doLogout()">ログアウト</button>
+    </div>
+  </header>
+
+  <div class="app-body">
+    <button class="back-btn" onclick="backToAdmin()">← スタッフ一覧に戻る</button>
+    <div class="page-title" id="detail-title">スタッフ詳細</div>
+
+    <!-- 入職日 -->
+    <div class="card">
+      <div class="card-title">基本情報（氏名・入職日・誕生日・自動付与）</div>
+      <div id="d-hire-alert"></div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>氏名</label>
+          <input type="text" id="d-name" placeholder="例：くばら さいか">
+        </div>
+        <div class="form-group">
+          <label>入職日</label>
+          <input type="date" id="d-hire">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>誕生月（誕生日休の自動付与）</label>
+          <select id="d-birthmonth">
+            <option value="">未設定（自動付与しない）</option>
+            <option value="1">1月</option><option value="2">2月</option>
+            <option value="3">3月</option><option value="4">4月</option>
+            <option value="5">5月</option><option value="6">6月</option>
+            <option value="7">7月</option><option value="8">8月</option>
+            <option value="9">9月</option><option value="10">10月</option>
+            <option value="11">11月</option><option value="12">12月</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>誕生日（カレンダーに自動表示）</label>
+          <input type="number" id="d-birthday" min="1" max="31" step="1" placeholder="日（1〜31）">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>法定自動付与（有給）</label>
+          <select id="d-autogrant">
+            <option value="true">有効（入職日から自動計算）</option>
+            <option value="false">無効（手動付与のみ）</option>
+          </select>
+        </div>
+        <div class="form-group"></div>
+      </div>
+      <button class="btn btn-primary" onclick="saveHireDate()">保存</button>
+      <p class="hint">有給：入職6ヶ月後に10日、以後1年ごとに11・12・14・16・18・20日を「今日までの分」まとめて自動付与（時効2年）。誕生日休：誕生月の1日に2日を毎年自動付与（有効期限1年）。将来分は付与日到来後に管理者が画面を開いたとき自動追加されます。</p>
+    </div>
+
+    <!-- アカウント（ログイン情報） -->
+    <div class="card">
+      <div class="card-title">アカウント（ログイン情報）</div>
+      <div id="d-acct-alert"></div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>メールアドレス</label>
+          <input type="email" id="d-acct-email">
+        </div>
+        <div class="form-group">
+          <label>新しいパスワード（変更する場合のみ・8文字以上）</label>
+          <input type="text" id="d-acct-pw" placeholder="空欄なら変更しない" autocomplete="off">
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="adminUpdateCredentials()">更新する</button>
+      <p class="hint">パスワードは暗号化保存のため現在の値は表示できません。新しい値を設定して本人に伝えてください。</p>
+    </div>
+
+    <!-- サマリー -->
+    <div class="summary-grid">
+      <div class="summary-card">
+        <div class="s-label">有給付与（累計）</div>
+        <div class="s-value" id="d-granted">—</div>
+      </div>
+      <div class="summary-card used">
+        <div class="s-label">有給取得＋予定</div>
+        <div class="s-value" id="d-used">—</div>
+      </div>
+      <div class="summary-card remaining">
+        <div class="s-label">有給残</div>
+        <div class="s-value" id="d-remaining">—</div>
+      </div>
+    </div>
+    <div class="special-strip" id="d-special">特別休暇：—</div>
+
+    <button class="btn btn-primary btn-full" onclick="refreshDetailAll()" style="margin:10px 0 4px">🔄 付与・取得を登録して最新の状態に更新</button>
+    <p class="hint" style="margin-top:0">※付与・取消・削除はボタンを押した時点で保存されます。反映を確認したいときはこのボタンで最新表示に更新できます。</p>
+
+    <!-- タブ -->
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('detail','requests',this)">取得履歴</button>
+      <button class="tab-btn" onclick="switchTab('detail','grants',this)">付与履歴・管理</button>
+    </div>
+
+    <!-- 取得履歴（管理者） -->
+    <div id="detail-tab-requests" class="tab-content active">
+      <!-- 代理登録 -->
+      <div class="card">
+        <div class="card-title">取得記録を追加（代理登録・過去分の入力）</div>
+        <div id="d-req-alert"></div>
+        <div class="form-group">
+          <label>休暇の種類</label>
+          <select id="d-req-kind">
+            <option value="paid">有給休暇</option>
+            <option value="comp">代休（休日当番）</option>
+            <option value="birthday">誕生日休</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>開始日</label>
+            <input type="date" id="d-req-start">
+          </div>
+          <div class="form-group">
+            <label>終了日</label>
+            <input type="date" id="d-req-end">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>日数（日）</label>
+            <input type="number" id="d-req-days" min="0" max="99" step="0.5" placeholder="例：1">
+          </div>
+          <div class="form-group">
+            <label>＋時間（0〜7）</label>
+            <input type="number" id="d-req-hours" min="0" max="7" step="1" placeholder="0">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>理由（任意）</label>
+          <input type="text" id="d-req-reason" placeholder="私用 など">
+        </div>
+        <button class="btn btn-success" onclick="detailAddRequest()">登録する</button>
+        <p class="hint">過去の取得実績もここから入力できます。1日＝8時間換算です。</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">取得履歴</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>期間</th><th>種別</th><th>日数</th><th>理由</th><th>状態</th><th>操作</th></tr>
+            </thead>
+            <tbody id="detail-req-body">
+              <tr><td colspan="6" class="loading">読み込み中…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 付与履歴・管理 -->
+    <div id="detail-tab-grants" class="tab-content">
+      <div class="card">
+        <div class="card-title">休暇を付与する</div>
+        <div id="detail-grant-alert"></div>
+        <div class="form-group">
+          <label>休暇の種類</label>
+          <select id="d-grant-kind">
+            <option value="paid">有給休暇</option>
+            <option value="comp">代休（休日当番）</option>
+            <option value="birthday">誕生日休</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>付与日数（日）</label>
+            <input type="number" id="d-grant-days" min="0" max="99" step="0.5" placeholder="例：10">
+          </div>
+          <div class="form-group">
+            <label>＋時間（0〜7）</label>
+            <input type="number" id="d-grant-hours" min="0" max="7" step="1" placeholder="0">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>付与日</label>
+            <input type="date" id="d-grant-date">
+          </div>
+          <div class="form-group">
+            <label>有効期限（任意）</label>
+            <input type="date" id="d-grant-expires">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>備考</label>
+          <input type="text" id="d-grant-note" placeholder="備考">
+        </div>
+        <button class="btn btn-success" onclick="detailGrantLeave()">付与する</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">付与履歴</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>付与日</th><th>種別</th><th>日数</th><th>有効期限</th><th>備考</th><th>操作</th></tr>
+            </thead>
+            <tbody id="detail-grants-body">
+              <tr><td colspan="6" class="loading">読み込み中…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ 日付モーダル ══════════════ -->
+<div id="day-modal" class="modal-back" onclick="if(event.target===this)closeDayModal()">
+  <div class="modal-sheet">
+    <div class="modal-head">
+      <h3 id="dm-title">—</h3>
+      <button class="modal-close" onclick="closeDayModal()">✕</button>
+    </div>
+    <div id="dm-body"></div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// ================================================================
+//  設定
+// ================================================================
+const SUPABASE_URL  = 'https://usdgadreruepqphqlcno.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVzZGdhZHJlcnVlcHFwaHFsY25vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MzIyNDAsImV4cCI6MjA5ODQwODI0MH0.FRqyp1b2Jg5Fcf70b9nRNaPtnyPmXFNYaPyNhqqRGD4';
+const HOURS_PER_DAY = 8;                 // 1日＝8時間換算
+const AUTO_NOTE     = '法定付与（自動）';  // 自動付与の識別マーカー
+
+// ================================================================
+//  セッション管理（localStorage）
+// ================================================================
+let _sess = null;
+function getSession() {
+  if (_sess) return _sess;
+  try { _sess = JSON.parse(localStorage.getItem('ykg_sess')); } catch {}
+  return _sess;
+}
+function saveSession(s) {
+  _sess = s;
+  if (s) localStorage.setItem('ykg_sess', JSON.stringify(s));
+  else   localStorage.removeItem('ykg_sess');
+}
+function authH() {
+  const s = getSession();
+  const h = { 'apikey': SUPABASE_ANON, 'Content-Type': 'application/json' };
+  if (s?.access_token) h['Authorization'] = 'Bearer ' + s.access_token;
+  return h;
+}
+
+// ================================================================
+//  トークンリフレッシュ（有効期限1時間 → 自動更新）
+// ================================================================
+let _refreshing = null;
+async function refreshToken() {
+  if (_refreshing) return _refreshing;
+  const s = getSession();
+  if (!s?.refresh_token) return null;
+  _refreshing = (async () => {
+    try {
+      const res = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
+        method: 'POST',
+        headers: { 'apikey': SUPABASE_ANON, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: s.refresh_token }),
+      });
+      const data = await res.json();
+      if (!res.ok) return null;
+      saveSession(data);
+      currentUser = data.user;
+      return data;
+    } catch { return null; }
+    finally { _refreshing = null; }
+  })();
+  return _refreshing;
+}
+
+// ================================================================
+//  DB ヘルパー（Supabase REST API）
+// ================================================================
+async function dbFetch(method, table, qs, body, extra, _retried) {
+  const url = SUPABASE_URL + '/rest/v1/' + table + (qs ? '?' + qs : '');
+  const res = await fetch(url, {
+    method,
+    cache: 'no-store',   // 付与・取消の直後に古いキャッシュを読まないよう常に最新を取得
+    headers: { ...authH(), ...(extra || {}) },
+    body: body != null ? JSON.stringify(body) : undefined,
+  });
+  // トークン切れ → リフレッシュして1回だけ再試行
+  if (res.status === 401 && !_retried) {
+    const refreshed = await refreshToken();
+    if (refreshed) return dbFetch(method, table, qs, body, extra, true);
+  }
+  const text = await res.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch {}
+  if (!res.ok) return { data: null, error: data || { message: 'HTTP ' + res.status } };
+  return { data, error: null };
+}
+const GET    = (t, q)    => dbFetch('GET',    t, q, null,  { 'Accept': 'application/json' });
+const GET1   = (t, q)    => dbFetch('GET',    t, q, null,  { 'Accept': 'application/vnd.pgrst.object+json' });
+const POST   = (t, b)    => dbFetch('POST',   t, '',  b,   { 'Prefer': 'return=representation' });
+const PATCH  = (t, q, b) => dbFetch('PATCH',  t, q,   b,   { 'Prefer': 'return=representation' });
+const DEL    = (t, q)    => dbFetch('DELETE', t, q,  null, {});
+
+// RPC（DB関数）呼び出し
+async function rpc(fn, args, _retried) {
+  const res = await fetch(SUPABASE_URL + '/rest/v1/rpc/' + fn, {
+    method: 'POST',
+    cache: 'no-store',
+    headers: authH(),
+    body: JSON.stringify(args || {}),
+  });
+  if (res.status === 401 && !_retried) {
+    const refreshed = await refreshToken();
+    if (refreshed) return rpc(fn, args, true);
+  }
+  const text = await res.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch {}
+  if (!res.ok) return { data: null, error: data || { message: 'HTTP ' + res.status } };
+  return { data, error: null };
+}
+
+// ================================================================
+//  状態
+// ================================================================
+let currentUser    = null;
+let currentProfile = null;
+let viewingStaff   = null;
+const isAdmin  = () => currentProfile?.role === 'admin';
+const isViewer = () => currentProfile?.role === 'viewer';
+
+// 閲覧専用アカウント（読み取り専用・DB側で書き込み禁止）
+const VIEWER_EMAIL = 'viewer@yukyu-kanri.local';
+const VIEWER_PW    = 'view-only-2026-himawari';
+
+// ================================================================
+//  ユーティリティ
+// ================================================================
+function today() {
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;
+}
+const fmtDate = d => d ? d.slice(0, 10) : '—';
+function fmtPeriod(s, e) { return s === e ? fmtDate(s) : `${fmtDate(s)} 〜 ${fmtDate(e)}`; }
+
+// 日数（0.125刻み）→「◯日◯時間」表記
+function fmtDH(v) {
+  const th = Math.round(Number(v) * HOURS_PER_DAY);
+  if (!th) return '0日';
+  const d = Math.floor(th / HOURS_PER_DAY), h = th % HOURS_PER_DAY;
+  if (d && h) return `${d}日${h}時間`;
+  if (d) return `${d}日`;
+  return `${h}時間`;
+}
+
+const fmtTime = t => t ? t.slice(0, 5) : '';
+
+// '09:00:00'→'9' / '09:30:00'→'9:30'（チップ用の短縮表記）
+function shortTime(t) {
+  if (!t) return '';
+  const [h, m] = t.split(':');
+  return m === '00' ? String(parseInt(h, 10)) : `${parseInt(h, 10)}:${m}`;
+}
+
+// 取得記録の内容表記（モーダル用）
+function leaveDetailText(r) {
+  const prefix = (r.kind && r.kind !== 'paid') ? KIND_LABEL[r.kind] + '・' : '';
+  if (r.leave_type === 'half') return prefix + (r.half_period ? `半日（${r.half_period === 'am' ? '午前' : '午後'}）` : '半日（0.5日）');
+  if (r.leave_type === 'hour' && r.start_time) return prefix + `${fmtTime(r.start_time)}〜${fmtTime(r.end_time)}（${fmtDH(r.days)}）`;
+  let s = fmtDH(r.days);
+  if (r.start_date !== r.end_date) s += `（${fmtPeriod(r.start_date, r.end_date)}）`;
+  return prefix + s;
+}
+
+// 取得記録の期間セル表記（履歴テーブル用）
+function periodCell(r) {
+  let s = fmtPeriod(r.start_date, r.end_date);
+  if (r.leave_type === 'half') s += r.half_period === 'am' ? '（午前）' : r.half_period === 'pm' ? '（午後）' : '（半休）';
+  else if (r.leave_type === 'hour' && r.start_time) s += `（${fmtTime(r.start_time)}〜${fmtTime(r.end_time)}）`;
+  return s;
+}
+
+function escHtml(s) {
+  return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function escJs(str) {
+  return (str || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
+function addMonths(iso, m) {
+  const [y, mo, d] = iso.split('-').map(Number);
+  const t = mo - 1 + m;
+  const ny = y + Math.floor(t / 12);
+  const nm = ((t % 12) + 12) % 12;
+  const last = new Date(Date.UTC(ny, nm + 1, 0)).getUTCDate();
+  const nd = Math.min(d, last);
+  return `${ny}-${String(nm + 1).padStart(2, '0')}-${String(nd).padStart(2, '0')}`;
+}
+function diffDays(a, b) {
+  const [ay, am, ad] = a.split('-').map(Number);
+  const [by, bm, bd] = b.split('-').map(Number);
+  return Math.round((Date.UTC(by, bm - 1, bd) - Date.UTC(ay, am - 1, ad)) / 86400000);
+}
+function nextDay(iso) {
+  const [y, m, d] = iso.split('-').map(Number);
+  const t = new Date(Date.UTC(y, m - 1, d + 1));
+  return t.toISOString().slice(0, 10);
+}
+
+function showToast(msg, isError = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show' + (isError ? ' error' : '');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.className = ''; }, 3200);
+}
+function setAlert(id, msg, isError = true) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = msg ? `<div class="alert alert-${isError ? 'error' : 'success'}">${msg}</div>` : '';
+}
+
+// ================================================================
+//  ビュー / タブ
+// ================================================================
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  const el = document.getElementById('view-' + name);
+  if (el) el.classList.add('active');
+}
+
+function switchTab(prefix, tab, btn) {
+  const view = { staff: 'view-staff', admin: 'view-admin', detail: 'view-detail' };
+  const v = document.getElementById(view[prefix]);
+  v.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  v.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  const tc = document.getElementById(`${prefix}-tab-${tab}`);
+  if (tc) tc.classList.add('active');
+
+  if (prefix === 'staff'  && tab === 'calendar') renderCalendar('staff');
+  if (prefix === 'staff'  && tab === 'taken')    loadStaffTaken();
+  if (prefix === 'staff'  && tab === 'grants')   loadStaffGrants();
+  if (prefix === 'admin'  && tab === 'calendar') renderCalendar('admin');
+  if (prefix === 'admin'  && tab === 'staff')    loadAdminStaff();
+  if (prefix === 'admin'  && tab === 'grant')    fillGrantStaffSelect();
+  if (prefix === 'admin'  && tab === 'report')   renderReport();
+  if (prefix === 'detail' && tab === 'requests') loadDetailRequests();
+  if (prefix === 'detail' && tab === 'grants')   loadDetailGrants();
+}
+
+// ================================================================
+//  認証
+// ================================================================
+async function doLogin() {
+  setAlert('login-alert', '');
+  const email    = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  if (!email || !password) { setAlert('login-alert', 'メールアドレスとパスワードを入力してください。'); return; }
+
+  const btn = document.querySelector('#view-login .btn-primary');
+  btn.disabled = true; btn.textContent = 'ログイン中…';
+  try {
+    const res = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=password', {
+      method: 'POST',
+      headers: { 'apikey': SUPABASE_ANON, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setAlert('login-alert', 'ログインに失敗しました：' + (data.error_description || data.message || 'エラー'));
+      return;
+    }
+    saveSession(data);
+    currentUser = data.user;
+    await loadCurrentProfile();
+  } catch(e) {
+    setAlert('login-alert', 'ネットワークエラー：' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'ログイン';
+  }
+}
+
+async function doViewerLogin() {
+  setAlert('login-alert', '');
+  try {
+    const res = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=password', {
+      method: 'POST',
+      headers: { 'apikey': SUPABASE_ANON, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: VIEWER_EMAIL, password: VIEWER_PW }),
+    });
+    const data = await res.json();
+    if (!res.ok) { setAlert('login-alert', '閲覧用ログインに失敗しました。'); return; }
+    saveSession(data);
+    currentUser = data.user;
+    await loadCurrentProfile();
+  } catch(e) {
+    setAlert('login-alert', 'ネットワークエラー：' + e.message);
+  }
+}
+
+async function doLogout() {
+  const s = getSession();
+  if (s?.access_token) {
+    await fetch(SUPABASE_URL + '/auth/v1/logout', {
+      method: 'POST',
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + s.access_token },
+    }).catch(() => {});
+  }
+  saveSession(null);
+  currentUser = currentProfile = viewingStaff = null;
+  showView('login');
+}
+
+async function loadCurrentProfile() {
+  const { data, error } = await GET1('profiles', 'select=*&id=eq.' + currentUser.id);
+  if (error || !data) {
+    // トークン期限切れの可能性 → セッション破棄
+    saveSession(null);
+    currentUser = null;
+    showView('login');
+    setAlert('login-alert', 'セッションの有効期限が切れました。再ログインしてください。');
+    return;
+  }
+  currentProfile = data;
+  if (data.role === 'admin') initAdminView();
+  else initStaffView();
+}
+
+// ================================================================
+//  残日数計算（種別ごと・時効考慮のFIFO消化）
+// ================================================================
+const KINDS = ['paid', 'birthday', 'comp'];
+const KIND_LABEL = { paid: '有給', birthday: '誕生日休', comp: '代休' };
+const kindBadge = k => {
+  const kk = k || 'paid';
+  return `<span class="badge badge-k${kk}">${KIND_LABEL[kk]}</span>`;
+};
+
+async function fetchBalances(uid) {
+  const [g, u] = await Promise.all([
+    GET('leave_grants',  'select=days,granted_date,expires_date,kind&user_id=eq.' + uid + '&order=granted_date.asc'),
+    GET('leave_requests','select=days,start_date,kind&user_id=eq.' + uid + '&status=eq.approved&order=start_date.asc'),
+  ]);
+  const t = today();
+  const out = {};
+  for (const k of KINDS) {
+    const grants = (g.data || []).filter(x => (x.kind || 'paid') === k).map(x => ({ ...x, left: Number(x.days) }));
+    const takes  = (u.data || []).filter(x => (x.kind || 'paid') === k);
+    const granted = grants.reduce((s, x) => s + Number(x.days), 0);
+    const used    = takes.reduce((s, x) => s + Number(x.days), 0);
+    // FIFO: 付与（古い順）から順に消化。時効切れの付与は残高から除外。
+    // ※過去分の代理入力を残に反映させるため「付与日≦取得日」の制約は設けない
+    //   （付与日より前の日付で取得を入れても、その付与から消化される）
+    for (const tk of takes) {
+      let rem = Number(tk.days);
+      for (const gr of grants) {
+        if (rem <= 0) break;
+        if (gr.left <= 0) continue;
+        if (gr.expires_date && gr.expires_date < tk.start_date) continue;
+        const use = Math.min(gr.left, rem);
+        gr.left -= use; rem -= use;
+      }
+    }
+    const remaining = grants.reduce((s, gr) =>
+      s + ((gr.expires_date && gr.expires_date < t) ? 0 : gr.left), 0);
+    out[k] = { granted, used, remaining };
+  }
+  return out;
+}
+
+async function renderBalanceSet(uid, gId, uId, rId, spId) {
+  const b = await fetchBalances(uid);
+  document.getElementById(gId).textContent = fmtDH(b.paid.granted);
+  document.getElementById(uId).textContent = fmtDH(b.paid.used);
+  document.getElementById(rId).textContent = fmtDH(b.paid.remaining);
+  const sp = document.getElementById(spId);
+  if (sp) sp.innerHTML =
+    `特別休暇：🎂 誕生日休 残 <strong>${fmtDH(b.birthday.remaining)}</strong>　／　🔄 代休 残 <strong>${fmtDH(b.comp.remaining)}</strong>`;
+  return b;
+}
+
+async function refreshMyBalance() {
+  if (!currentUser) return;
+  if (isAdmin() || isViewer()) return;   // 管理者・閲覧用にはサマリー表示なし
+  const b = await fetchBalances(currentUser.id);
+  document.getElementById('s-remaining').textContent = fmtDH(b.paid.remaining);
+  document.getElementById('s-bday').textContent      = fmtDH(b.birthday.remaining);
+  document.getElementById('s-comp').textContent      = fmtDH(b.comp.remaining);
+  renderNextGrant(currentProfile, 's-nextgrant');
+}
+
+// ================================================================
+//  法定自動付与
+//  入職6ヶ月後: 10日 → 以後1年ごと 11,12,14,16,18,20(上限)
+// ================================================================
+// 自動付与（法定・誕生日休）はこの日以降の付与日のみ作成する。
+// 2026-07-02以前は管理簿から手動取込済みのため、過去分を自動バックフィルしない。
+const AUTO_GRANT_FROM = '2026-07-03';
+
+function statutoryGrants(hireDate, upTo) {
+  const table = [10, 11, 12, 14, 16, 18];
+  const out = [];
+  for (let k = 0; k < 200; k++) {
+    const gd = addMonths(hireDate, 6 + k * 12);
+    if (gd > upTo) break;
+    out.push({ days: table[k] ?? 20, granted_date: gd, expires_date: addMonths(gd, 24) });
+  }
+  return out;
+}
+
+// 次回の法定自動付与（今日以降・カットオフ以降で最初に到来する付与）
+function nextStatutoryGrant(s) {
+  if (!s || !s.hire_date || s.auto_grant === false) return null;
+  const t = today();
+  const table = [10, 11, 12, 14, 16, 18];
+  for (let k = 0; k < 200; k++) {
+    const gd = addMonths(s.hire_date, 6 + k * 12);
+    if (gd >= t && gd >= AUTO_GRANT_FROM) return { granted_date: gd, days: table[k] ?? 20 };
+  }
+  return null;
+}
+
+function renderNextGrant(s, elId) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  const ng = nextStatutoryGrant(s);
+  el.innerHTML = ng
+    ? `次回の法定付与：<strong>${fmtDate(ng.granted_date)}</strong> に <strong>${fmtDH(ng.days)}</strong>`
+    : `次回の法定付与：<strong>なし</strong>（自動付与オフ／入職日未設定）`;
+}
+
+async function autoGrantSyncOne(s) {
+  if (!s.hire_date || s.auto_grant === false) return 0;
+  const due = statutoryGrants(s.hire_date, today());
+  if (!due.length) return 0;
+  const { data: existing } = await GET('leave_grants',
+    'select=granted_date&user_id=eq.' + s.id + '&note=eq.' + encodeURIComponent(AUTO_NOTE));
+  if (!existing) return 0;   // 取得失敗時は重複防止のためスキップ
+  const have = new Set(existing.map(g => g.granted_date));
+  let n = 0;
+  for (const g of due.filter(x => !have.has(x.granted_date) && x.granted_date >= AUTO_GRANT_FROM)) {
+    const { error } = await POST('leave_grants', { user_id: s.id, ...g, note: AUTO_NOTE, kind: 'paid' });
+    if (!error) n++;
+  }
+  return n;
+}
+
+// 誕生日休: 誕生月の1日に2日付与（有効期限1年）
+async function birthdaySyncOne(s) {
+  if (!s.birth_month) return 0;
+  const t = today();
+  const y = Number(t.slice(0, 4));
+  const gd = `${y}-${String(s.birth_month).padStart(2, '0')}-01`;
+  if (gd > t) return 0;                 // 今年の誕生月はまだ
+  if (gd < AUTO_GRANT_FROM) return 0;   // 2026-07-02以前は自動付与しない（手動取込済み）
+  const { data: existing } = await GET('leave_grants',
+    `select=id&user_id=eq.${s.id}&kind=eq.birthday&granted_date=eq.${gd}`);
+  if (!existing) return 0;       // 取得失敗時はスキップ
+  if (existing.length) return 0; // すでに付与済み
+  const { error } = await POST('leave_grants', {
+    user_id: s.id, days: 2, granted_date: gd, expires_date: addMonths(gd, 12),
+    note: '誕生日休（自動）', kind: 'birthday',
+  });
+  return error ? 0 : 1;
+}
+
+async function autoGrantSyncAll(staffArr) {
+  let added = 0;
+  for (const s of staffArr) {
+    added += await autoGrantSyncOne(s);
+    added += await birthdaySyncOne(s);
+  }
+  if (added > 0) showToast(`自動付与を${added}件登録しました`);
+  return added;
+}
+
+// ================================================================
+//  日本の祝日（holidays-jp APIを取得＋localStorageキャッシュ。
+//  オフライン初回用に2026・2027をフォールバック内蔵。APIが取れたら上書き）
+// ================================================================
+const HOLIDAYS_FALLBACK = {
+  '2026-01-01': '元日', '2026-01-12': '成人の日', '2026-02-11': '建国記念の日',
+  '2026-02-23': '天皇誕生日', '2026-03-20': '春分の日', '2026-04-29': '昭和の日',
+  '2026-05-03': '憲法記念日', '2026-05-04': 'みどりの日', '2026-05-05': 'こどもの日',
+  '2026-05-06': '振替休日', '2026-07-20': '海の日', '2026-08-11': '山の日',
+  '2026-09-21': '敬老の日', '2026-09-22': '国民の休日', '2026-09-23': '秋分の日',
+  '2026-10-12': 'スポーツの日', '2026-11-03': '文化の日', '2026-11-23': '勤労感謝の日',
+  '2027-01-01': '元日', '2027-01-11': '成人の日', '2027-02-11': '建国記念の日',
+  '2027-02-23': '天皇誕生日', '2027-03-21': '春分の日', '2027-03-22': '振替休日',
+  '2027-04-29': '昭和の日', '2027-05-03': '憲法記念日', '2027-05-04': 'みどりの日',
+  '2027-05-05': 'こどもの日', '2027-07-19': '海の日', '2027-08-11': '山の日',
+  '2027-09-20': '敬老の日', '2027-09-23': '秋分の日', '2027-10-11': 'スポーツの日',
+  '2027-11-03': '文化の日', '2027-11-23': '勤労感謝の日',
+};
+let jpHolidays = { ...HOLIDAYS_FALLBACK };
+
+function loadHolidaysCache() {
+  try {
+    const c = JSON.parse(localStorage.getItem('ykg_holidays') || 'null');
+    if (c && c.data && typeof c.data === 'object') jpHolidays = c.data;
+  } catch {}
+}
+async function loadHolidays(onUpdate) {
+  const before = JSON.stringify(jpHolidays);
+  try {
+    const res = await fetch('https://holidays-jp.github.io/api/v1/date.json', { cache: 'no-store' });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && typeof data === 'object' && Object.keys(data).length) {
+      jpHolidays = data;
+      try { localStorage.setItem('ykg_holidays', JSON.stringify({ data })); } catch {}
+      if (onUpdate && JSON.stringify(data) !== before) onUpdate();
+    }
+  } catch {}
+}
+function rerenderActiveCalendar() {
+  ['staff', 'admin'].forEach(p => { if (calState[p]) renderCalendar(p); });
+}
+
+// ================================================================
+//  カレンダー（共有）
+// ================================================================
+const calState = {};
+function ensureCal(prefix) {
+  if (!calState[prefix]) {
+    const n = new Date();
+    calState[prefix] = { y: n.getFullYear(), m: n.getMonth(), leaves: [], events: [] };
+  }
+  return calState[prefix];
+}
+function calMove(prefix, delta) {
+  const st = ensureCal(prefix);
+  st.m += delta;
+  if (st.m < 0)  { st.m = 11; st.y--; }
+  if (st.m > 11) { st.m = 0;  st.y++; }
+  renderCalendar(prefix);
+}
+function calToday(prefix) {
+  const n = new Date();
+  const st = ensureCal(prefix);
+  st.y = n.getFullYear(); st.m = n.getMonth();
+  renderCalendar(prefix);
+}
+
+async function renderCalendar(prefix) {
+  const st = ensureCal(prefix);
+  const { y, m } = st;
+  document.getElementById(prefix + '-cal-title').textContent = `${y}年${m + 1}月`;
+
+  const lastD = new Date(y, m + 1, 0).getDate();
+  const first = `${y}-${String(m+1).padStart(2,'0')}-01`;
+  const last  = `${y}-${String(m+1).padStart(2,'0')}-${String(lastD).padStart(2,'0')}`;
+
+  const [lv, ev, bd] = await Promise.all([
+    GET('leave_requests',
+      `select=id,user_id,start_date,end_date,days,reason,leave_type,half_period,start_time,end_time,kind,profiles!leave_requests_user_id_fkey(full_name)&status=eq.approved&start_date=lte.${last}&end_date=gte.${first}`),
+    GET('events',
+      `select=id,title,event_date&event_date=gte.${first}&event_date=lte.${last}&order=created_at.asc`),
+    GET('profiles',
+      `select=full_name,birth_month,birth_day&birth_month=eq.${m + 1}&birth_day=not.is.null`),
+  ]);
+  st.leaves    = lv.data || [];
+  st.events    = ev.data || [];
+  st.birthdays = bd.data || [];
+
+  // 日別マップ
+  const byDay = {};
+  const push = (iso, chip) => { (byDay[iso] = byDay[iso] || []).push(chip); };
+  // スタッフの誕生日（自動表示）
+  st.birthdays.forEach(p => {
+    if (!p.birth_day || p.birth_day > lastD) return;
+    const iso = `${y}-${String(m+1).padStart(2,'0')}-${String(p.birth_day).padStart(2,'0')}`;
+    const name = escHtml((p.full_name || '').split(/[ 　]/)[0]);
+    push(iso, { cls: 'bday', label: `${name}誕生日` });
+  });
+  st.leaves.forEach(r => {
+    const name = escHtml((r.profiles?.full_name || '—').split(/[ 　]/)[0]);
+    const kind = r.kind || 'paid';
+    const kindCls = kind === 'birthday' ? 'birthday' : kind === 'comp' ? 'comp' : 'leave';
+    const dayWord = kind === 'birthday' ? '誕生日休' : kind === 'comp' ? '代休' : '1日休';
+    let label;
+    if (r.leave_type === 'half') {
+      label = `${name} ${r.half_period === 'am' ? '午前休' : r.half_period === 'pm' ? '午後休' : '半休'}`;
+    } else if (r.leave_type === 'hour' && r.start_time) {
+      label = `${name} ${fmtTime(r.start_time)}~${fmtTime(r.end_time)}`;
+    } else {
+      const th = Math.round(Number(r.days) * HOURS_PER_DAY);
+      label = (th < HOURS_PER_DAY && r.start_date === r.end_date)
+        ? `${name} ${th}h休`
+        : `${name} ${dayWord}`;
+    }
+    let d = r.start_date < first ? first : r.start_date;
+    const end = r.end_date > last ? last : r.end_date;
+    while (d <= end) { push(d, { cls: kindCls, label }); d = nextDay(d); }
+  });
+  st.events.forEach(e => push(e.event_date, { cls: 'event', label: escHtml(e.title) }));
+
+  const firstDow = new Date(y, m, 1).getDay();
+  const t = today();
+  let html = ['日','月','火','水','木','金','土'].map((d, i) =>
+    `<div class="cal-dow${i===0?' sun':i===6?' sat':''}">${d}</div>`).join('');
+  for (let i = 0; i < firstDow; i++) html += '<div class="cal-cell blank"></div>';
+  for (let day = 1; day <= lastD; day++) {
+    const iso = `${y}-${String(m+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const dow = (firstDow + day - 1) % 7;
+    const hol = jpHolidays[iso];
+    const cls = ['cal-cell'];
+    if (dow === 0) cls.push('sun');
+    if (dow === 6) cls.push('sat');
+    if (hol) cls.push('holiday');
+    if (iso === t) cls.push('today');
+    else if (iso < t) cls.push('past');
+    const chips = byDay[iso] || [];
+    const holChip = hol ? `<div class="cal-chip holiday">${escHtml(hol)}</div>` : '';
+    const shown = chips.map(c => `<div class="cal-chip ${c.cls}">${c.label}</div>`).join('');
+    html += `<div class="${cls.join(' ')}" onclick="openDayModal('${prefix}','${iso}')">
+      <div class="cal-daynum">${day}</div>${holChip}${shown}</div>`;
+  }
+  const trailing = (firstDow + lastD) % 7;
+  if (trailing) for (let i = trailing; i < 7; i++) html += '<div class="cal-cell blank"></div>';
+  document.getElementById(prefix + '-cal-grid').innerHTML = html;
+}
+
+// ================================================================
+//  日付モーダル
+// ================================================================
+let dayCtx = null;   // { prefix, iso }
+
+function openDayModal(prefix, iso) {
+  dayCtx = { prefix, iso };
+  renderDayModal();
+  document.getElementById('day-modal').classList.add('open');
+}
+function closeDayModal() {
+  document.getElementById('day-modal').classList.remove('open');
+  dayCtx = null;
+}
+
+function renderDayModal() {
+  if (!dayCtx) return;
+  const { prefix, iso } = dayCtx;
+  const st = ensureCal(prefix);
+  const t = today();
+  const isPast = iso < t;
+  const [y, m, d] = iso.split('-').map(Number);
+  const dow = '日月火水木金土'[new Date(y, m - 1, d).getDay()];
+  document.getElementById('dm-title').textContent = `${y}年${m}月${d}日（${dow}）`;
+
+  const dayLeaves = st.leaves.filter(r => r.start_date <= iso && r.end_date >= iso);
+  const dayEvents = st.events.filter(e => e.event_date === iso);
+  const dayBdays  = (st.birthdays || []).filter(p => p.birth_month === m && p.birth_day === d);
+  const hol = jpHolidays[iso];
+
+  let html = '<div id="dm-alert"></div>';
+
+  // ── 祝日 ──
+  if (hol) {
+    html += `<div class="dm-row" style="background:#fee2e2;border-color:#fecaca">
+      <div>🎌 <strong>${escHtml(hol)}</strong>（祝日）</div></div>`;
+  }
+
+  // ── 誕生日 ──
+  if (dayBdays.length) {
+    html += dayBdays.map(p => `
+      <div class="dm-row" style="background:#fdf2f8;border-color:#fbcfe8">
+        <div>🎂 <strong>${escHtml(p.full_name || '')}</strong> さんの誕生日</div>
+      </div>`).join('');
+  }
+
+  // ── 休暇 ──
+  html += '<div class="dm-section-title">🏖 休暇（有給・誕生日休・代休）</div>';
+  if (!dayLeaves.length) {
+    html += '<div class="dm-empty">この日の休暇はありません</div>';
+  } else {
+    html += dayLeaves.map(r => {
+      const name = escHtml(r.profiles?.full_name || '—');
+      const own = r.user_id === currentUser.id;
+      const cancellable = own && r.start_date > t;
+      const showReason = (own || isAdmin()) && r.reason;
+      let btn = '';
+      if (cancellable) {
+        btn = `<button class="btn btn-danger btn-sm" onclick="dmCancelLeave('${r.id}')">取消</button>`;
+      } else if (isAdmin()) {
+        btn = `<button class="btn btn-danger btn-sm" onclick="dmCancelLeave('${r.id}')">削除</button>`;
+      } else if (own) {
+        btn = `<span class="dm-locked">確定</span>`;
+      }
+      return `<div class="dm-row leave">
+        <div><strong>${name}</strong>
+          <span class="dm-sub">${leaveDetailText(r)}${showReason ? '・' + escHtml(r.reason) : ''}</span>
+        </div>${btn}</div>`;
+    }).join('');
+  }
+
+  // ── 予定 ──
+  html += '<div class="dm-section-title">📌 予定（診療変更・ミーティング等）</div>';
+  if (!dayEvents.length) {
+    html += '<div class="dm-empty">この日の予定はありません</div>';
+  } else {
+    html += dayEvents.map(e => `
+      <div class="dm-row event">
+        <div><strong>${escHtml(e.title)}</strong></div>
+        ${isViewer() ? '' : `<button class="btn btn-ghost btn-sm" onclick="dmDeleteEvent('${e.id}')">削除</button>`}
+      </div>`).join('');
+  }
+
+  // ── アクション（閲覧用は非表示） ──
+  if (!isViewer()) {
+    html += '<div class="dm-actions">';
+    if (!isPast) html += `<button class="btn btn-primary" onclick="dmToggle('dm-leave-form')">＋ 休暇をとる</button>`;
+    html += `<button class="btn btn-ghost" onclick="dmToggle('dm-event-form')">＋ 予定を追加</button>`;
+    html += '</div>';
+  }
+
+  // ── 有給取得フォーム ──
+  if (!isPast && !isViewer()) {
+    html += `
+    <div id="dm-leave-form" class="dm-form">
+      <div class="dm-form-title">休暇をとる（${m}月${d}日〜）</div>
+      <div class="form-group">
+        <label>休暇の種類</label>
+        <select id="dm-kind">
+          <option value="paid">有給休暇</option>
+          <option value="birthday">誕生日休</option>
+          <option value="comp">代休（休日当番）</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>単位</label>
+        <select id="dm-unit" onchange="dmUnitChange()">
+          <option value="day">1日単位</option>
+          <option value="half">0.5日（半休）</option>
+          <option value="hour">時間単位（1時間〜）</option>
+        </select>
+      </div>
+      <div id="dm-day-fields">
+        <div class="form-row">
+          <div class="form-group">
+            <label>終了日</label>
+            <input type="date" id="dm-end" value="${iso}" min="${iso}" onchange="dmEndChange('${iso}')">
+          </div>
+          <div class="form-group">
+            <label>日数</label>
+            <input type="number" id="dm-days" min="1" max="99" step="1" value="1">
+          </div>
+        </div>
+      </div>
+      <div id="dm-half-fields" style="display:none">
+        <div class="form-group">
+          <label>午前 / 午後</label>
+          <select id="dm-half">
+            <option value="am">午前休</option>
+            <option value="pm">午後休</option>
+          </select>
+        </div>
+      </div>
+      <div id="dm-hour-fields" style="display:none">
+        <div class="form-row">
+          <div class="form-group">
+            <label>開始時刻</label>
+            <input type="time" id="dm-time-start" value="09:00" step="3600">
+          </div>
+          <div class="form-group">
+            <label>終了時刻</label>
+            <input type="time" id="dm-time-end" value="10:00" step="3600">
+          </div>
+        </div>
+        <p class="hint" style="margin-top:0">1時間単位で1〜7時間まで（8時間は「1日単位」をご利用ください）</p>
+      </div>
+      <div class="form-group">
+        <label>理由（任意）</label>
+        <input type="text" id="dm-reason" placeholder="私用 など">
+      </div>
+      <button class="btn btn-primary btn-full" id="dm-submit-btn" onclick="dmSubmitLeave()">登録する</button>
+    </div>`;
+  }
+
+  // ── 予定追加フォーム ──
+  if (!isViewer()) {
+    html += `
+    <div id="dm-event-form" class="dm-form">
+      <div class="dm-form-title">予定を追加（${m}月${d}日）</div>
+      <div class="form-group">
+        <label>内容</label>
+        <input type="text" id="dm-event-title" maxlength="50" placeholder="例：午後休診、スタッフミーティング 18:00">
+      </div>
+      <button class="btn btn-primary btn-full" onclick="dmAddEvent()">追加する</button>
+    </div>`;
+  }
+
+  document.getElementById('dm-body').innerHTML = html;
+}
+
+// モーダル内エラー表示（アラート＋トースト＋先頭へスクロール）
+function dmAlert(msg) {
+  setAlert('dm-alert', msg);
+  const sheet = document.querySelector('.modal-sheet');
+  if (sheet) sheet.scrollTop = 0;
+  showToast(msg, true);
+}
+
+function dmToggle(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const others = ['dm-leave-form', 'dm-event-form'].filter(x => x !== id);
+  others.forEach(o => document.getElementById(o)?.classList.remove('open'));
+  el.classList.toggle('open');
+}
+function dmUnitChange() {
+  const unit = document.getElementById('dm-unit').value;
+  document.getElementById('dm-day-fields').style.display  = unit === 'day'  ? '' : 'none';
+  document.getElementById('dm-half-fields').style.display = unit === 'half' ? '' : 'none';
+  document.getElementById('dm-hour-fields').style.display = unit === 'hour' ? '' : 'none';
+}
+function dmEndChange(startIso) {
+  const end = document.getElementById('dm-end').value;
+  if (!end || end < startIso) return;
+  document.getElementById('dm-days').value = diffDays(startIso, end) + 1;
+}
+
+async function dmSubmitLeave() {
+  if (!dayCtx) return;
+  const { iso } = dayCtx;
+  setAlert('dm-alert', '');
+  const unit = document.getElementById('dm-unit').value;
+  const reason = document.getElementById('dm-reason').value.trim() || null;
+
+  let endDate, value, halfPeriod = null, startTime = null, endTime = null;
+  if (unit === 'day') {
+    endDate = document.getElementById('dm-end').value;
+    value   = parseFloat(document.getElementById('dm-days').value);
+    if (!endDate || endDate < iso) { dmAlert('終了日は開始日以降にしてください。'); return; }
+    if (!value || value <= 0)      { dmAlert('日数を正しく入力してください。'); return; }
+  } else if (unit === 'half') {
+    endDate    = iso;
+    value      = 0.5;
+    halfPeriod = document.getElementById('dm-half').value;
+  } else {
+    endDate = iso;
+    const sv = document.getElementById('dm-time-start').value;
+    const ev = document.getElementById('dm-time-end').value;
+    if (!sv || !ev) { dmAlert('開始時刻と終了時刻を入力してください。'); return; }
+    const [sh, sm] = sv.split(':').map(Number);
+    const [eh, em] = ev.split(':').map(Number);
+    const mins = (eh * 60 + em) - (sh * 60 + sm);
+    if (mins <= 0)       { dmAlert('終了時刻は開始時刻より後にしてください。'); return; }
+    if (mins % 60 !== 0) { dmAlert('有給は1時間単位です。1時間刻みになるように入力してください（例：9:00〜12:00）。'); return; }
+    const h = mins / 60;
+    if (h > 7) { dmAlert('時間単位は7時間まで（8時間は「1日単位」をご利用ください）。'); return; }
+    value     = h / HOURS_PER_DAY;
+    startTime = sv;
+    endTime   = ev;
+  }
+
+  const kind = document.getElementById('dm-kind').value;
+  const btn = document.getElementById('dm-submit-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '登録中…'; }
+  try {
+    const bal = await fetchBalances(currentUser.id);
+    const remaining = bal[kind].remaining;
+    if (value > remaining + 1e-9) {
+      dmAlert(remaining <= 0
+        ? `${KIND_LABEL[kind]}の残日数がありません。管理者に付与を依頼してください。`
+        : `${KIND_LABEL[kind]}の残日数（${fmtDH(remaining)}）を超えるため登録できません。`);
+      return;
+    }
+
+    const { error } = await POST('leave_requests', {
+      user_id: currentUser.id, start_date: iso, end_date: endDate,
+      days: value, reason, status: 'approved',
+      leave_type: unit, half_period: halfPeriod,
+      start_time: startTime, end_time: endTime, kind,
+    });
+    if (error) {
+      dmAlert('登録できませんでした：' + (error.message || JSON.stringify(error)));
+      return;
+    }
+    showToast(`${KIND_LABEL[kind]}を登録しました`);
+    await refreshCalAndModal();
+  } finally {
+    const b = document.getElementById('dm-submit-btn');
+    if (b) { b.disabled = false; b.textContent = '登録する'; }
+  }
+}
+
+async function dmCancelLeave(id) {
+  if (!confirm('この休暇を取り消しますか？\nカレンダーから削除され、残日数が戻ります。')) return;
+  const { error } = await DEL('leave_requests', 'id=eq.' + id);
+  if (error) { showToast('取消できませんでした', true); return; }
+  showToast('有給を取り消しました');
+  await refreshCalAndModal();
+}
+
+async function dmAddEvent() {
+  if (!dayCtx) return;
+  setAlert('dm-alert', '');
+  const title = document.getElementById('dm-event-title').value.trim();
+  if (!title) { dmAlert('予定の内容を入力してください。'); return; }
+  const { error } = await POST('events', {
+    title, event_date: dayCtx.iso, created_by: currentUser.id,
+  });
+  if (error) { dmAlert('追加できませんでした：' + (error.message || '')); return; }
+  showToast('予定を追加しました');
+  await refreshCalAndModal();
+}
+
+async function dmDeleteEvent(id) {
+  if (!confirm('この予定を削除しますか？')) return;
+  const { error } = await DEL('events', 'id=eq.' + id);
+  if (error) { showToast('削除できませんでした', true); return; }
+  showToast('予定を削除しました');
+  await refreshCalAndModal();
+}
+
+async function refreshCalAndModal() {
+  if (!dayCtx) return;
+  const { prefix } = dayCtx;
+  await renderCalendar(prefix);
+  renderDayModal();
+  refreshMyBalance();
+}
+
+// ================================================================
+//  スタッフ画面
+// ================================================================
+function initStaffView() {
+  const dispName = currentProfile.full_name || currentUser.email;
+  document.getElementById('staff-header-name').textContent = dispName;
+  document.getElementById('staff-greeting').textContent = isViewer() ? '閲覧用アカウント' : `${dispName} さん`;
+  document.getElementById('s-cur-email').value = currentProfile.email || '';
+  const viewer = isViewer();
+  // 閲覧用: カレンダーのみ表示（集計・タブは非表示）
+  document.querySelector('#view-staff .summary-grid').style.display = viewer ? 'none' : '';
+  document.getElementById('s-nextgrant').style.display = viewer ? 'none' : '';
+  document.querySelector('#view-staff .tabs').style.display = viewer ? 'none' : '';
+  showView('staff');
+  if (!viewer) refreshMyBalance();
+  renderCalendar('staff');
+}
+
+// ================================================================
+//  アカウント変更（本人）
+// ================================================================
+async function changeMyEmail() {
+  setAlert('s-email-alert', '');
+  const ne = document.getElementById('s-new-email').value.trim();
+  if (!ne) { setAlert('s-email-alert', '新しいメールアドレスを入力してください。'); return; }
+  const { error } = await rpc('change_my_email', { new_email: ne });
+  if (error) { setAlert('s-email-alert', '変更できませんでした：' + (error.message || '')); return; }
+  currentProfile.email = ne;
+  document.getElementById('s-cur-email').value = ne;
+  document.getElementById('s-new-email').value = '';
+  showToast('メールアドレスを変更しました。次回から新しいアドレスでログインしてください。');
+}
+
+async function changeMyPassword() {
+  setAlert('s-pw-alert', '');
+  const cur = document.getElementById('s-cur-pw').value;
+  const nw  = document.getElementById('s-new-pw').value;
+  const nw2 = document.getElementById('s-new-pw2').value;
+  if (!cur || !nw)   { setAlert('s-pw-alert', '現在のパスワードと新しいパスワードを入力してください。'); return; }
+  if (nw.length < 8) { setAlert('s-pw-alert', '新しいパスワードは8文字以上にしてください。'); return; }
+  if (nw !== nw2)    { setAlert('s-pw-alert', '新しいパスワード（確認）が一致しません。'); return; }
+  const { error } = await rpc('change_my_password', { current_pw: cur, new_pw: nw });
+  if (error) { setAlert('s-pw-alert', '変更できませんでした：' + (error.message || '')); return; }
+  ['s-cur-pw', 's-new-pw', 's-new-pw2'].forEach(id => document.getElementById(id).value = '');
+  showToast('パスワードを変更しました。次回から新しいパスワードでログインしてください。');
+}
+
+async function loadStaffTaken() {
+  const { data } = await GET('leave_requests',
+    'select=*&user_id=eq.' + currentUser.id + '&status=eq.approved&order=start_date.desc');
+  const tbody = document.getElementById('s-taken-body');
+  if (!data?.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">取得履歴がありません</td></tr>'; return; }
+  const t = today();
+  tbody.innerHTML = data.map(r => {
+    const future = r.start_date > t;
+    return `
+    <tr>
+      <td>${periodCell(r)}</td>
+      <td>${kindBadge(r.kind)}</td>
+      <td>${fmtDH(r.days)}</td>
+      <td>${escHtml(r.reason) || '—'}</td>
+      <td>${future ? '<span class="badge badge-plan">予定</span>' : '<span class="badge badge-fixed">確定</span>'}</td>
+      <td>${future ? `<button class="btn btn-ghost btn-sm" onclick="cancelLeaveFromList('${r.id}')">取消</button>` : ''}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function cancelLeaveFromList(id) {
+  if (!confirm('この休暇を取り消しますか？\nカレンダーから削除され、残日数が戻ります。')) return;
+  const { error } = await DEL('leave_requests', 'id=eq.' + id);
+  if (error) { showToast('取消できませんでした', true); return; }
+  showToast('有給を取り消しました');
+  await loadStaffTaken();
+  refreshMyBalance();
+}
+
+async function loadStaffGrants() {
+  const { data } = await GET('leave_grants',
+    'select=*&user_id=eq.' + currentUser.id + '&order=granted_date.desc');
+  const tbody = document.getElementById('s-grants-body');
+  if (!data?.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty">付与履歴がありません</td></tr>'; return; }
+  tbody.innerHTML = data.map(g => `
+    <tr>
+      <td>${fmtDate(g.granted_date)}</td>
+      <td>${kindBadge(g.kind)}</td>
+      <td>${fmtDH(g.days)}</td>
+      <td>${fmtDate(g.expires_date)}</td>
+      <td>${escHtml(g.note) || '—'}</td>
+    </tr>`).join('');
+}
+
+// ================================================================
+//  管理者メイン
+// ================================================================
+function initAdminView() {
+  const name = currentProfile.full_name || currentUser.email;
+  document.getElementById('admin-header-name').textContent  = name;
+  document.getElementById('detail-header-name').textContent = name;
+  document.getElementById('a-grant-date').value = today();
+  document.getElementById('d-grant-date').value = today();
+  showView('admin');
+  renderCalendar('admin');
+  // バックグラウンドで自動付与（法定・誕生日休）を同期
+  GET('profiles', 'select=id,hire_date,auto_grant,birth_month&or=(hire_date.not.is.null,birth_month.not.is.null)')
+    .then(({ data }) => { if (data?.length) autoGrantSyncAll(data); });
+}
+
+async function loadAdminStaff() {
+  const { data: staff } = await GET('profiles', 'select=*&role=neq.viewer&order=full_name.asc');
+  if (!staff) return;
+  await autoGrantSyncAll(staff);
+  const balances = await Promise.all(staff.map(s => fetchBalances(s.id)));
+  const tbody = document.getElementById('admin-staff-body');
+  if (!staff.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">スタッフがいません</td></tr>'; return; }
+  tbody.innerHTML = staff.map((s, i) => `
+    <tr>
+      <td><strong>${escHtml(s.full_name) || '—'}</strong>${s.role === 'admin' ? ' <span class="header-role">管理者</span>' : ''}</td>
+      <td>${fmtDate(s.hire_date)}</td>
+      <td>${fmtDH(balances[i].paid.granted)}</td>
+      <td>${fmtDH(balances[i].paid.used)}</td>
+      <td><strong style="color:var(--primary)">${fmtDH(balances[i].paid.remaining)}</strong></td>
+      <td style="font-size:12px">🎂${fmtDH(balances[i].birthday.remaining)}<br>🔄${fmtDH(balances[i].comp.remaining)}</td>
+      <td><button class="link-btn" onclick="openStaffDetail('${s.id}')">詳細 →</button></td>
+    </tr>`).join('');
+  fillGrantStaffSelectWith(staff);
+}
+
+let _staffList = [];
+function fillGrantStaffSelectWith(staff) {
+  _staffList = staff;
+  const sel = document.getElementById('a-grant-staff');
+  sel.innerHTML = '<option value="">— 選択してください —</option>' +
+    staff.map(s => `<option value="${s.id}">${escHtml(s.full_name || s.email)}</option>`).join('');
+}
+async function fillGrantStaffSelect() {
+  if (_staffList.length) return;
+  const { data } = await GET('profiles', 'select=*&role=neq.viewer&order=full_name.asc');
+  if (data) fillGrantStaffSelectWith(data);
+}
+
+function readDH(daysId, hoursId) {
+  const d = parseFloat(document.getElementById(daysId).value) || 0;
+  const h = parseInt(document.getElementById(hoursId).value, 10) || 0;
+  return d + h / HOURS_PER_DAY;
+}
+
+async function adminGrantLeave() {
+  setAlert('admin-grant-alert', '');
+  const staffId = document.getElementById('a-grant-staff').value;
+  const kind    = document.getElementById('a-grant-kind').value;
+  const value   = readDH('a-grant-days', 'a-grant-hours');
+  const date    = document.getElementById('a-grant-date').value;
+  const expires = document.getElementById('a-grant-expires').value || null;
+  const note    = document.getElementById('a-grant-note').value.trim() || null;
+  if (!staffId)    { setAlert('admin-grant-alert', 'スタッフを選択してください。'); return; }
+  if (value <= 0)  { setAlert('admin-grant-alert', '付与日数または時間を入力してください。'); return; }
+  if (!date)       { setAlert('admin-grant-alert', '付与日を入力してください。'); return; }
+  const { error } = await POST('leave_grants', { user_id: staffId, days: value, granted_date: date, expires_date: expires, note, kind });
+  if (error) { setAlert('admin-grant-alert', '付与できませんでした：' + (error.message || '')); return; }
+  showToast(`${KIND_LABEL[kind]}を${fmtDH(value)}付与しました`);
+  ['a-grant-days','a-grant-hours','a-grant-note','a-grant-expires'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('a-grant-staff').value = '';
+}
+
+// ================================================================
+//  管理者：スタッフ詳細
+// ================================================================
+async function openStaffDetail(staffId) {
+  const { data: p } = await GET1('profiles', 'select=*&id=eq.' + staffId);
+  if (!p) { showToast('スタッフ情報を取得できませんでした', true); return; }
+  viewingStaff = p;
+  document.getElementById('detail-title').textContent = (p.full_name || p.email) + ' さんの休暇情報';
+  document.getElementById('d-name').value = p.full_name || '';
+  document.getElementById('d-hire').value = p.hire_date || '';
+  document.getElementById('d-autogrant').value = String(p.auto_grant !== false);
+  document.getElementById('d-birthmonth').value = p.birth_month ? String(p.birth_month) : '';
+  document.getElementById('d-birthday').value = p.birth_day || '';
+  document.getElementById('d-acct-email').value = p.email || '';
+  document.getElementById('d-acct-pw').value = '';
+  setAlert('d-acct-alert', '');
+  setAlert('d-hire-alert', '');
+  setAlert('d-req-alert', '');
+  // タブを先頭に戻す
+  document.querySelectorAll('#view-detail .tab-btn').forEach((b,i) => b.classList.toggle('active', i===0));
+  document.querySelectorAll('#view-detail .tab-content').forEach((c,i) => c.classList.toggle('active', i===0));
+  // 代理登録フォーム初期値
+  document.getElementById('d-req-start').value = today();
+  document.getElementById('d-req-end').value   = today();
+  showView('detail');
+  await Promise.all([refreshDetailBalance(), loadDetailRequests(), loadDetailGrants()]);
+}
+
+function refreshDetailBalance() {
+  return renderBalanceSet(viewingStaff.id, 'd-granted', 'd-used', 'd-remaining', 'd-special');
+}
+
+// 付与・取消の後に「登録されたか」をその場で確認できる更新ボタン
+async function refreshDetailAll() {
+  if (!viewingStaff) return;
+  const { data: p } = await GET1('profiles', 'select=*&id=eq.' + viewingStaff.id);
+  if (p) viewingStaff = p;
+  await Promise.all([refreshDetailBalance(), loadDetailRequests(), loadDetailGrants()]);
+  showToast('最新の状態に更新しました');
+}
+
+function backToAdmin() {
+  viewingStaff = null;
+  showView('admin');
+  loadAdminStaff();
+}
+
+async function saveHireDate() {
+  setAlert('d-hire-alert', '');
+  const name = document.getElementById('d-name').value.trim();
+  const hd  = document.getElementById('d-hire').value;
+  const ag  = document.getElementById('d-autogrant').value === 'true';
+  const bmv = document.getElementById('d-birthmonth').value;
+  const bm  = bmv ? parseInt(bmv, 10) : null;
+  const bdv = document.getElementById('d-birthday').value;
+  const bd  = bdv ? parseInt(bdv, 10) : null;
+  if (!name) { setAlert('d-hire-alert', '氏名を入力してください。'); return; }
+  if (!hd)   { setAlert('d-hire-alert', '入職日を入力してください。'); return; }
+  if (bd !== null && (bd < 1 || bd > 31)) { setAlert('d-hire-alert', '誕生日は1〜31で入力してください。'); return; }
+  const { error } = await PATCH('profiles', 'id=eq.' + viewingStaff.id,
+    { full_name: name, hire_date: hd, auto_grant: ag, birth_month: bm, birth_day: bd });
+  if (error) { setAlert('d-hire-alert', '保存できませんでした：' + (error.message || '')); return; }
+  viewingStaff.full_name = name;
+  viewingStaff.hire_date = hd;
+  viewingStaff.auto_grant = ag;
+  viewingStaff.birth_month = bm;
+  viewingStaff.birth_day = bd;
+  document.getElementById('detail-title').textContent = name + ' さんの休暇情報';
+  // 自分自身の氏名を変えた場合はヘッダーにも反映
+  if (viewingStaff.id === currentUser.id) {
+    currentProfile.full_name = name;
+    document.getElementById('admin-header-name').textContent  = name;
+    document.getElementById('detail-header-name').textContent = name;
+  }
+  let added = ag ? await autoGrantSyncOne(viewingStaff) : 0;
+  added += await birthdaySyncOne(viewingStaff);
+  showToast(added > 0 ? `保存し、自動付与を${added}件登録しました` : '保存しました');
+  await Promise.all([refreshDetailBalance(), loadDetailGrants()]);
+}
+
+async function loadDetailRequests() {
+  if (!viewingStaff) return;
+  const { data } = await GET('leave_requests',
+    'select=*&user_id=eq.' + viewingStaff.id + '&status=eq.approved&order=start_date.desc');
+  const tbody = document.getElementById('detail-req-body');
+  if (!data?.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">取得履歴がありません</td></tr>'; return; }
+  const t = today();
+  tbody.innerHTML = data.map(r => {
+    const future = r.start_date > t;
+    return `
+    <tr>
+      <td>${periodCell(r)}</td>
+      <td>${kindBadge(r.kind)}</td>
+      <td>${fmtDH(r.days)}</td>
+      <td>${escHtml(r.reason) || '—'}</td>
+      <td>${future ? '<span class="badge badge-plan">予定</span>' : '<span class="badge badge-fixed">確定</span>'}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="detailDeleteRequest('${r.id}')">削除</button></td>
+    </tr>`;
+  }).join('');
+}
+
+async function detailAddRequest() {
+  if (!viewingStaff) return;
+  setAlert('d-req-alert', '');
+  const kind   = document.getElementById('d-req-kind').value;
+  const start  = document.getElementById('d-req-start').value;
+  const end    = document.getElementById('d-req-end').value;
+  const value  = readDH('d-req-days', 'd-req-hours');
+  const reason = document.getElementById('d-req-reason').value.trim() || null;
+  if (!start || !end)  { setAlert('d-req-alert', '開始日と終了日を入力してください。'); return; }
+  if (end < start)     { setAlert('d-req-alert', '終了日は開始日以降にしてください。'); return; }
+  if (value <= 0)      { setAlert('d-req-alert', '日数または時間を入力してください。'); return; }
+  const { error } = await POST('leave_requests', {
+    user_id: viewingStaff.id, start_date: start, end_date: end,
+    days: value, reason, status: 'approved', kind,
+    reviewed_by: currentUser.id, reviewed_at: new Date().toISOString(),
+  });
+  if (error) { setAlert('d-req-alert', '登録できませんでした：' + (error.message || '')); return; }
+  showToast(`${KIND_LABEL[kind]}の取得記録（${fmtDH(value)}）を登録しました`);
+  ['d-req-days','d-req-hours','d-req-reason'].forEach(id => document.getElementById(id).value = '');
+  await Promise.all([loadDetailRequests(), refreshDetailBalance()]);
+}
+
+async function detailDeleteRequest(id) {
+  if (!confirm('この取得記録を削除しますか？\nカレンダーからも消え、残日数が戻ります。')) return;
+  const { error } = await DEL('leave_requests', 'id=eq.' + id);
+  if (error) { showToast('削除できませんでした', true); return; }
+  showToast('取得記録を削除しました');
+  await Promise.all([loadDetailRequests(), refreshDetailBalance()]);
+}
+
+async function loadDetailGrants() {
+  if (!viewingStaff) return;
+  const { data } = await GET('leave_grants',
+    'select=*&user_id=eq.' + viewingStaff.id + '&order=granted_date.desc');
+  const tbody = document.getElementById('detail-grants-body');
+  if (!data?.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">付与履歴がありません</td></tr>'; return; }
+  tbody.innerHTML = data.map(g => `
+    <tr>
+      <td>${fmtDate(g.granted_date)}</td>
+      <td>${kindBadge(g.kind)}</td>
+      <td>${fmtDH(g.days)}</td>
+      <td>${fmtDate(g.expires_date)}</td>
+      <td>${escHtml(g.note) || '—'}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteGrant('${g.id}')">削除</button></td>
+    </tr>`).join('');
+}
+
+async function detailGrantLeave() {
+  if (!viewingStaff) return;
+  setAlert('detail-grant-alert', '');
+  const kind    = document.getElementById('d-grant-kind').value;
+  const value   = readDH('d-grant-days', 'd-grant-hours');
+  const date    = document.getElementById('d-grant-date').value;
+  const expires = document.getElementById('d-grant-expires').value || null;
+  const note    = document.getElementById('d-grant-note').value.trim() || null;
+  if (value <= 0) { setAlert('detail-grant-alert', '付与日数または時間を入力してください。'); return; }
+  if (!date)      { setAlert('detail-grant-alert', '付与日を入力してください。'); return; }
+  const { error } = await POST('leave_grants', { user_id: viewingStaff.id, days: value, granted_date: date, expires_date: expires, note, kind });
+  if (error) { setAlert('detail-grant-alert', '付与できませんでした：' + (error.message || '')); return; }
+  showToast(`${KIND_LABEL[kind]}を${fmtDH(value)}付与しました`);
+  ['d-grant-days','d-grant-hours','d-grant-note','d-grant-expires'].forEach(id => document.getElementById(id).value = '');
+  await Promise.all([loadDetailGrants(), refreshDetailBalance()]);
+}
+
+async function deleteGrant(id) {
+  if (!confirm('この付与記録を削除しますか？\n残日数が変動します。')) return;
+  const { error } = await DEL('leave_grants', 'id=eq.' + id);
+  if (error) { showToast('削除できませんでした', true); return; }
+  showToast('付与記録を削除しました');
+  await Promise.all([loadDetailGrants(), refreshDetailBalance()]);
+}
+
+// ================================================================
+//  管理者: アカウント（メール・パスワード）編集
+// ================================================================
+async function adminUpdateCredentials() {
+  if (!viewingStaff) return;
+  setAlert('d-acct-alert', '');
+  const email = document.getElementById('d-acct-email').value.trim();
+  const pw    = document.getElementById('d-acct-pw').value;
+  const emailChanged = email && email !== (viewingStaff.email || '');
+  if (!emailChanged && !pw) { setAlert('d-acct-alert', '変更内容がありません。'); return; }
+  if (pw && pw.length < 8)  { setAlert('d-acct-alert', 'パスワードは8文字以上にしてください。'); return; }
+  const { error } = await rpc('admin_update_credentials', {
+    target_id: viewingStaff.id,
+    new_email: emailChanged ? email : null,
+    new_pw:    pw || null,
+  });
+  if (error) { setAlert('d-acct-alert', '更新できませんでした：' + (error.message || '')); return; }
+  if (emailChanged) viewingStaff.email = email;
+  document.getElementById('d-acct-pw').value = '';
+  showToast('アカウント情報を更新しました' + (pw ? '。新しいパスワードを本人に伝えてください。' : ''));
+}
+
+// ================================================================
+//  月次レポート（管理者）
+// ================================================================
+let reportState = null;
+let _reportCache = null;
+
+function reportMove(delta) {
+  const n = new Date();
+  if (!reportState || delta === 0) reportState = { y: n.getFullYear(), m: n.getMonth() };
+  if (delta !== 0) {
+    reportState.m += delta;
+    if (reportState.m < 0)  { reportState.m = 11; reportState.y--; }
+    if (reportState.m > 11) { reportState.m = 0;  reportState.y++; }
+  }
+  renderReport();
+}
+
+// 月をまたぐ取得の当月分按分
+function monthPortion(r, first, last) {
+  if (r.end_date < first || r.start_date > last) return 0;
+  const len = diffDays(r.start_date, r.end_date) + 1;
+  const os = r.start_date < first ? first : r.start_date;
+  const oe = r.end_date > last ? last : r.end_date;
+  return Number(r.days) * (diffDays(os, oe) + 1) / len;
+}
+
+async function renderReport() {
+  if (!reportState) { const n = new Date(); reportState = { y: n.getFullYear(), m: n.getMonth() }; }
+  const { y, m } = reportState;
+  document.getElementById('report-title').textContent = `${y}年${m + 1}月 休暇取得レポート`;
+  const lastD = new Date(y, m + 1, 0).getDate();
+  const first = `${y}-${String(m+1).padStart(2,'0')}-01`;
+  const last  = `${y}-${String(m+1).padStart(2,'0')}-${String(lastD).padStart(2,'0')}`;
+  const body = document.getElementById('report-body');
+  body.innerHTML = '<div class="loading">読み込み中…</div>';
+
+  const [stf, tk] = await Promise.all([
+    GET('profiles', 'select=id,full_name,email&role=neq.viewer&order=full_name.asc'),
+    GET('leave_requests',
+      `select=*,profiles!leave_requests_user_id_fkey(full_name)&status=eq.approved&start_date=lte.${last}&end_date=gte.${first}&order=start_date.asc`),
+  ]);
+  const staff = stf.data || [];
+  const takes = tk.data || [];
+  const balances = await Promise.all(staff.map(s => fetchBalances(s.id)));
+
+  const rows = staff.map((s, i) => {
+    const sums = { paid: 0, birthday: 0, comp: 0 };
+    takes.filter(r => r.user_id === s.id)
+         .forEach(r => { sums[r.kind || 'paid'] += monthPortion(r, first, last); });
+    return {
+      name: s.full_name || s.email,
+      sums, total: sums.paid + sums.birthday + sums.comp,
+      bal: balances[i],
+    };
+  });
+  const totals = rows.reduce((a, r) => ({
+    paid: a.paid + r.sums.paid, birthday: a.birthday + r.sums.birthday, comp: a.comp + r.sums.comp,
+  }), { paid: 0, birthday: 0, comp: 0 });
+
+  let html = `<div class="card-title">当月の取得集計</div>
+  <div class="table-wrap"><table><thead><tr>
+    <th>スタッフ</th><th>有給</th><th>誕生日休</th><th>代休</th><th>当月合計</th>
+    <th>有給残</th><th>誕生日休残</th><th>代休残</th>
+  </tr></thead><tbody>`;
+  html += rows.map(r => `
+    <tr>
+      <td><strong>${escHtml(r.name)}</strong></td>
+      <td>${fmtDH(r.sums.paid)}</td>
+      <td>${fmtDH(r.sums.birthday)}</td>
+      <td>${fmtDH(r.sums.comp)}</td>
+      <td><strong>${fmtDH(r.total)}</strong></td>
+      <td style="color:var(--primary)">${fmtDH(r.bal.paid.remaining)}</td>
+      <td>${fmtDH(r.bal.birthday.remaining)}</td>
+      <td>${fmtDH(r.bal.comp.remaining)}</td>
+    </tr>`).join('');
+  html += `
+    <tr style="background:var(--gray-50)">
+      <td><strong>合計</strong></td>
+      <td><strong>${fmtDH(totals.paid)}</strong></td>
+      <td><strong>${fmtDH(totals.birthday)}</strong></td>
+      <td><strong>${fmtDH(totals.comp)}</strong></td>
+      <td><strong>${fmtDH(totals.paid + totals.birthday + totals.comp)}</strong></td>
+      <td colspan="3"></td>
+    </tr>
+  </tbody></table></div>`;
+
+  html += `<div class="card-title" style="margin-top:24px">取得明細（スタッフ別）</div>`;
+  if (!takes.length) {
+    html += '<div class="empty">当月の取得はありません</div>';
+  } else {
+    html += `<div class="table-wrap"><table><thead><tr>
+      <th>期間</th><th>種別</th><th>内容</th><th>日数（当月分）</th><th>理由</th>
+    </tr></thead><tbody>`;
+    staff.forEach(s => {
+      const mine = takes.filter(r => r.user_id === s.id);
+      if (!mine.length) return;
+      const subtotal = mine.reduce((a, r) => a + monthPortion(r, first, last), 0);
+      html += `
+      <tr style="background:var(--gray-100)">
+        <td colspan="5"><strong>${escHtml(s.full_name || s.email)}</strong>
+          <span class="dm-sub" style="margin-left:8px">当月合計 ${fmtDH(subtotal)}</span></td>
+      </tr>`;
+      html += mine.map(r => `
+      <tr>
+        <td>${periodCell(r)}</td>
+        <td>${kindBadge(r.kind)}</td>
+        <td>${leaveDetailText(r)}</td>
+        <td>${fmtDH(monthPortion(r, first, last))}${(r.start_date < first || r.end_date > last) ? ' <span class="dm-sub">※月跨ぎ按分</span>' : ''}</td>
+        <td>${escHtml(r.reason) || '—'}</td>
+      </tr>`).join('');
+    });
+    html += '</tbody></table></div>';
+  }
+  body.innerHTML = html;
+  _reportCache = { y, m, rows, takes, staff, first, last };
+}
+
+function downloadReportCSV() {
+  if (!_reportCache) return;
+  const { y, m, rows, takes, staff, first, last } = _reportCache;
+  const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const L = [];
+  L.push(`${y}年${m + 1}月 休暇取得レポート`);
+  L.push('');
+  L.push('■当月の取得集計（単位：日、1時間=0.125日）');
+  L.push('スタッフ,有給,誕生日休,代休,当月合計,有給残,誕生日休残,代休残');
+  rows.forEach(r => L.push([
+    esc(r.name), r.sums.paid, r.sums.birthday, r.sums.comp, r.total,
+    r.bal.paid.remaining, r.bal.birthday.remaining, r.bal.comp.remaining,
+  ].join(',')));
+  L.push('');
+  L.push('■取得明細（スタッフ別）');
+  L.push('スタッフ,開始日,終了日,種別,内容,日数(当月分),理由');
+  staff.forEach(s => {
+    takes.filter(r => r.user_id === s.id).forEach(r => L.push([
+      esc(s.full_name || s.email), r.start_date, r.end_date,
+      KIND_LABEL[r.kind || 'paid'], esc(leaveDetailText(r)),
+      monthPortion(r, first, last), esc(r.reason || ''),
+    ].join(',')));
+  });
+  const blob = new Blob(['﻿' + L.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `休暇レポート_${y}年${String(m + 1).padStart(2, '0')}月.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ================================================================
+//  Enterキー / パスワード表示
+// ================================================================
+document.getElementById('login-password').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+function togglePw() {
+  const input = document.getElementById('login-password');
+  const btn   = input.nextElementSibling;
+  input.type  = input.type === 'password' ? 'text' : 'password';
+  btn.textContent = input.type === 'password' ? '表示' : '隠す';
+}
+
+// ================================================================
+//  起動
+// ================================================================
+(async () => {
+  loadHolidaysCache();                          // キャッシュを即時反映
+  loadHolidays(rerenderActiveCalendar);          // 背景で最新の祝日を取得→反映
+  const s = getSession();
+  if (s?.access_token && s?.user) {
+    currentUser = s.user;
+    await loadCurrentProfile();
+  } else {
+    showView('login');
+  }
+})();
+</script>
+</body>
+</html>
