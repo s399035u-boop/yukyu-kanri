@@ -1,0 +1,5 @@
+# Netlify 設定（静的サイト・ビルド不要）
+# index.html をそのまま公開する
+[build]
+  publish = "."
+  command = ""
