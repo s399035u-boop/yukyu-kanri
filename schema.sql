@@ -196,3 +196,76 @@ create policy events_insert on public.events
 drop policy if exists events_delete on public.events;
 create policy events_delete on public.events
   for delete using (auth.uid() is not null);
+
+-- =====================================================================
+--  管理者用RPC（SECURITY DEFINER・is_admin()でガード）
+--  クライアントはanonキーのままRPC経由で認証ユーザーの作成/削除が可能
+-- =====================================================================
+
+-- 新規スタッフ作成：auth.users + auth.identities を作成（bcryptパスワード）、
+-- handle_new_userトリガでprofiles作成 → 追加項目を更新
+--   ※ auth.identities.email は生成列のため挿入しない
+create or replace function public.admin_create_staff(
+  p_email text, p_password text, p_full_name text,
+  p_hire_date date default null, p_birth_month int default null,
+  p_birth_day int default null, p_auto_grant boolean default true
+) returns uuid
+language plpgsql security definer set search_path = 'public'
+as $$
+declare new_id uuid := gen_random_uuid();
+begin
+  if not public.is_admin() then raise exception '管理者権限が必要です'; end if;
+  if coalesce(p_full_name,'') = '' then raise exception '氏名を入力してください'; end if;
+  if p_email is null or p_email !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' then
+    raise exception 'メールアドレスの形式が正しくありません'; end if;
+  if p_password is null or length(p_password) < 8 then
+    raise exception 'パスワードは8文字以上にしてください'; end if;
+  if exists (select 1 from auth.users where lower(email) = lower(p_email)) then
+    raise exception 'このメールアドレスは既に使われています'; end if;
+
+  insert into auth.users (
+    instance_id, id, aud, role, email, encrypted_password,
+    email_confirmed_at, created_at, updated_at,
+    raw_app_meta_data, raw_user_meta_data,
+    confirmation_token, recovery_token, email_change_token_new, email_change
+  ) values (
+    '00000000-0000-0000-0000-000000000000', new_id, 'authenticated', 'authenticated',
+    lower(p_email), extensions.crypt(p_password, extensions.gen_salt('bf')),
+    now(), now(), now(),
+    '{"provider":"email","providers":["email"]}'::jsonb,
+    jsonb_build_object('full_name', p_full_name, 'email_verified', true),
+    '', '', '', ''
+  );
+  insert into auth.identities (
+    provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at
+  ) values (
+    new_id::text, new_id,
+    jsonb_build_object('sub', new_id::text, 'email', lower(p_email),
+                       'email_verified', false, 'phone_verified', false),
+    'email', now(), now(), now()
+  );
+  update public.profiles set
+    full_name = p_full_name, hire_date = p_hire_date,
+    birth_month = p_birth_month, birth_day = p_birth_day,
+    role = 'staff', auto_grant = coalesce(p_auto_grant, true), active = true
+  where id = new_id;
+  return new_id;
+end;
+$$;
+grant execute on function public.admin_create_staff(text,text,text,date,int,int,boolean) to authenticated;
+
+-- スタッフ削除：auth.users削除 → profiles/grants/requests は on delete cascade
+create or replace function public.admin_delete_staff(p_user_id uuid)
+returns void language plpgsql security definer set search_path = 'public'
+as $$
+begin
+  if not public.is_admin() then raise exception '管理者権限が必要です'; end if;
+  if p_user_id = auth.uid() then raise exception '自分自身のアカウントは削除できません'; end if;
+  if exists (select 1 from public.profiles where id = p_user_id and role = 'admin') then
+    raise exception '管理者アカウントは削除できません'; end if;
+  if not exists (select 1 from public.profiles where id = p_user_id) then
+    raise exception '対象のスタッフが見つかりません'; end if;
+  delete from auth.users where id = p_user_id;
+end;
+$$;
+grant execute on function public.admin_delete_staff(uuid) to authenticated;

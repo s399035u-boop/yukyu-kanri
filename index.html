@@ -526,6 +526,62 @@
 
     <!-- スタッフ一覧 -->
     <div id="admin-tab-staff" class="tab-content">
+      <!-- 新規スタッフ登録 -->
+      <div class="card">
+        <div class="card-title">＋ 新規スタッフ登録</div>
+        <div id="a-new-alert"></div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>氏名 <span style="color:var(--danger)">*</span></label>
+            <input type="text" id="a-new-name" placeholder="例：山田 花子">
+          </div>
+          <div class="form-group">
+            <label>入職日</label>
+            <input type="date" id="a-new-hire">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>メールアドレス <span style="color:var(--danger)">*</span></label>
+            <input type="email" id="a-new-email" placeholder="例：yamada@example.com" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label>初期パスワード <span style="color:var(--danger)">*</span>（8文字以上）</label>
+            <input type="text" id="a-new-pw" placeholder="本人に伝えてください" autocomplete="off">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>誕生月（誕生日休の自動付与）</label>
+            <select id="a-new-bm">
+              <option value="">未設定</option>
+              <option value="1">1月</option><option value="2">2月</option>
+              <option value="3">3月</option><option value="4">4月</option>
+              <option value="5">5月</option><option value="6">6月</option>
+              <option value="7">7月</option><option value="8">8月</option>
+              <option value="9">9月</option><option value="10">10月</option>
+              <option value="11">11月</option><option value="12">12月</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>誕生日（カレンダー表示）</label>
+            <input type="number" id="a-new-bd" min="1" max="31" step="1" placeholder="日（1〜31）">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>法定自動付与（有給）</label>
+            <select id="a-new-autogrant">
+              <option value="true">有効（入職日から自動計算）</option>
+              <option value="false">無効（手動付与のみ）</option>
+            </select>
+          </div>
+          <div class="form-group"></div>
+        </div>
+        <button class="btn btn-primary" id="a-new-btn" onclick="adminCreateStaff()">スタッフを登録</button>
+        <p class="hint">登録後すぐにこのメール・パスワードでログインできます。パスワードは本人がログイン後に変更できます。</p>
+      </div>
+
       <div class="card">
         <div class="card-title">スタッフ一覧</div>
         <div class="table-wrap">
@@ -823,6 +879,13 @@
           </table>
         </div>
       </div>
+    </div>
+
+    <!-- スタッフ削除（危険な操作） -->
+    <div class="card" style="border-color:#fecaca;background:#fef2f2">
+      <div class="card-title" style="color:var(--danger)">危険な操作</div>
+      <p class="hint" style="margin-top:0">このスタッフの<strong>アカウントと、有給の付与・取得履歴などすべてのデータを完全に削除</strong>します。元に戻せません。</p>
+      <button class="btn btn-danger" id="d-delete-btn" onclick="adminDeleteStaff()">このスタッフを削除する</button>
     </div>
   </div>
 </div>
@@ -1954,6 +2017,55 @@ function backToAdmin() {
   viewingStaff = null;
   showView('admin');
   loadAdminStaff();
+}
+
+// 新規スタッフ登録（管理者）
+async function adminCreateStaff() {
+  setAlert('a-new-alert', '');
+  const g = id => document.getElementById(id);
+  const full_name = g('a-new-name').value.trim();
+  const email     = g('a-new-email').value.trim();
+  const pw        = g('a-new-pw').value;
+  const hire      = g('a-new-hire').value || null;
+  const bm        = g('a-new-bm').value;
+  const bd        = g('a-new-bd').value;
+  const autoGrant = g('a-new-autogrant').value === 'true';
+  if (!full_name) { setAlert('a-new-alert', '氏名を入力してください。'); return; }
+  if (!email)     { setAlert('a-new-alert', 'メールアドレスを入力してください。'); return; }
+  if (!pw || pw.length < 8) { setAlert('a-new-alert', 'パスワードは8文字以上にしてください。'); return; }
+  const btn = g('a-new-btn');
+  btn.disabled = true; btn.textContent = '登録中…';
+  try {
+    const { data, error } = await rpc('admin_create_staff', {
+      p_email: email, p_password: pw, p_full_name: full_name,
+      p_hire_date: hire, p_birth_month: bm ? Number(bm) : null,
+      p_birth_day: bd ? Number(bd) : null, p_auto_grant: autoGrant,
+    });
+    if (error) { setAlert('a-new-alert', '登録できませんでした：' + (error.message || JSON.stringify(error))); return; }
+    showToast(`${full_name} さんを登録しました`);
+    ['a-new-name', 'a-new-email', 'a-new-pw', 'a-new-hire', 'a-new-bd'].forEach(x => g(x).value = '');
+    g('a-new-bm').value = ''; g('a-new-autogrant').value = 'true';
+    loadAdminStaff();
+  } finally {
+    btn.disabled = false; btn.textContent = 'スタッフを登録';
+  }
+}
+
+// スタッフ削除（管理者）
+async function adminDeleteStaff() {
+  if (!viewingStaff) return;
+  const name = viewingStaff.full_name || viewingStaff.email;
+  if (!confirm(`「${name}」を完全に削除します。\n\nアカウント（ログイン）と、有給の付与・取得履歴などすべてのデータが消え、元に戻せません。\n\n本当に削除しますか？`)) return;
+  const btn = document.getElementById('d-delete-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '削除中…'; }
+  const { error } = await rpc('admin_delete_staff', { p_user_id: viewingStaff.id });
+  if (error) {
+    showToast('削除できませんでした：' + (error.message || ''), true);
+    if (btn) { btn.disabled = false; btn.textContent = 'このスタッフを削除する'; }
+    return;
+  }
+  showToast(`${name} さんを削除しました`);
+  backToAdmin();
 }
 
 async function saveHireDate() {
