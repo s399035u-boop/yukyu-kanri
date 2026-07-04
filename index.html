@@ -1141,17 +1141,6 @@ function switchTab(prefix, tab, btn) {
 // ================================================================
 //  認証
 // ================================================================
-// ログイン成功時にブラウザのパスワード保存を明示的に促す
-// （Chrome/Android/Edge = Credential Management API。Safari/iOSは非対応のためフォーム方式に委ねる）
-async function saveCredentialToBrowser(id, password) {
-  try {
-    if (window.PasswordCredential && navigator.credentials && navigator.credentials.store) {
-      const cred = new window.PasswordCredential({ id, password, name: id });
-      await navigator.credentials.store(cred);
-    }
-  } catch (_) { /* 非対応ブラウザは無視 */ }
-}
-
 async function doLogin(e) {
   if (e && e.preventDefault) e.preventDefault();
   setAlert('login-alert', '');
@@ -1174,8 +1163,10 @@ async function doLogin(e) {
     }
     saveSession(data);
     currentUser = data.user;
-    await saveCredentialToBrowser(email, password);   // パスワード保存を促す
-    await loadCurrentProfile();
+    // SPAでもブラウザにパスワード保存を提案させるため、成功後はリロードする。
+    // 「フォーム送信 → 画面遷移 → ログイン欄が消える」流れをブラウザが検知し保存を促す。
+    location.reload();
+    return;
   } catch(e) {
     setAlert('login-alert', 'ネットワークエラー：' + e.message);
   } finally {
