@@ -331,18 +331,20 @@
     <h1>有給管理システム</h1>
     <p class="login-subtitle">アカウントにログインしてください</p>
     <div id="login-alert"></div>
+    <form id="login-form" onsubmit="doLogin(event); return false;">
     <div class="form-group">
       <label>メールアドレス</label>
-      <input type="email" id="login-email" placeholder="staff@clinic.jp" autocomplete="email">
+      <input type="email" id="login-email" name="username" placeholder="staff@clinic.jp" autocomplete="username" autocapitalize="none" spellcheck="false" inputmode="email">
     </div>
     <div class="form-group">
       <label>パスワード</label>
       <div style="position:relative">
-        <input type="password" id="login-password" placeholder="パスワード" autocomplete="current-password" style="padding-right:48px">
+        <input type="password" id="login-password" name="password" placeholder="パスワード" autocomplete="current-password" style="padding-right:48px">
         <button type="button" onclick="togglePw()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#6b7280;font-size:13px">表示</button>
       </div>
     </div>
-    <button class="btn btn-primary btn-full" onclick="doLogin()">ログイン</button>
+    <button type="submit" class="btn btn-primary btn-full">ログイン</button>
+    </form>
     <div style="text-align:center;margin:14px 0 4px;color:var(--gray-400);font-size:12px">─ または ─</div>
     <button class="btn btn-ghost btn-full" onclick="doViewerLogin()">👀 閲覧用として開く（入力不要）</button>
     <p class="hint" style="text-align:center">カレンダーの閲覧のみ。登録・変更はできません。</p>
@@ -1139,7 +1141,8 @@ function switchTab(prefix, tab, btn) {
 // ================================================================
 //  認証
 // ================================================================
-async function doLogin() {
+async function doLogin(e) {
+  if (e && e.preventDefault) e.preventDefault();
   setAlert('login-alert', '');
   const email    = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-password').value;
@@ -2365,11 +2368,9 @@ function downloadReportCSV() {
 }
 
 // ================================================================
-//  Enterキー / パスワード表示
+//  パスワード表示
+//  （Enterキーは <form> の送信で処理されるため専用リスナーは不要）
 // ================================================================
-document.getElementById('login-password').addEventListener('keydown', e => {
-  if (e.key === 'Enter') doLogin();
-});
 function togglePw() {
   const input = document.getElementById('login-password');
   const btn   = input.nextElementSibling;
