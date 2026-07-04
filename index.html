@@ -344,6 +344,8 @@
       </div>
     </div>
     <button type="submit" class="btn btn-primary btn-full">ログイン</button>
+    <button type="button" class="btn btn-ghost btn-full" style="margin-top:8px" onclick="saveLoginToBrowser()">🔑 このログイン情報をブラウザに保存</button>
+    <p class="hint" style="text-align:center;margin-top:6px">メール・パスワードを入力してから押すと、次回から自動入力されます</p>
     </form>
     <div style="text-align:center;margin:14px 0 4px;color:var(--gray-400);font-size:12px">─ または ─</div>
     <button class="btn btn-ghost btn-full" onclick="doViewerLogin()">👀 閲覧用として開く（入力不要）</button>
@@ -1141,6 +1143,24 @@ function switchTab(prefix, tab, btn) {
 // ================================================================
 //  認証
 // ================================================================
+// ログイン情報をブラウザのパスワードマネージャーに明示的に保存
+// （ボタンのクリック＝ユーザー操作の瞬間に呼ぶため、Chrome/Edgeで確実に保存ダイアログが出る）
+async function saveLoginToBrowser() {
+  const email = document.getElementById('login-email').value.trim();
+  const pw    = document.getElementById('login-password').value;
+  if (!email || !pw) { showToast('先にメールアドレスとパスワードを入力してください', true); return; }
+  if (window.PasswordCredential && navigator.credentials && navigator.credentials.store) {
+    try {
+      await navigator.credentials.store(new window.PasswordCredential({ id: email, password: pw, name: email }));
+      showToast('ブラウザに保存しました。次回からメール欄タップで自動入力されます');
+    } catch (err) {
+      showToast('保存できませんでした：' + (err.message || ''), true);
+    }
+  } else {
+    showToast('このブラウザは自動保存に非対応です（iPhone等）。ログイン時に出る保存案内をご利用ください', true);
+  }
+}
+
 async function doLogin(e) {
   if (e && e.preventDefault) e.preventDefault();
   setAlert('login-alert', '');
@@ -1163,10 +1183,7 @@ async function doLogin(e) {
     }
     saveSession(data);
     currentUser = data.user;
-    // SPAでもブラウザにパスワード保存を提案させるため、成功後はリロードする。
-    // 「フォーム送信 → 画面遷移 → ログイン欄が消える」流れをブラウザが検知し保存を促す。
-    location.reload();
-    return;
+    await loadCurrentProfile();
   } catch(e) {
     setAlert('login-alert', 'ネットワークエラー：' + e.message);
   } finally {
