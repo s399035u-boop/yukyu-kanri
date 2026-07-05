@@ -269,3 +269,42 @@ begin
 end;
 $$;
 grant execute on function public.admin_delete_staff(uuid) to authenticated;
+
+-- 休日当番の登録：予定(events)に「氏名 休日当番」＋代休(comp)1日を自動付与（本人）
+create or replace function public.register_holiday_duty(p_date date)
+returns void language plpgsql security definer set search_path = 'public'
+as $$
+declare uid uuid := auth.uid(); nm text; rl text;
+begin
+  if uid is null then raise exception 'ログインが必要です'; end if;
+  select full_name, role into nm, rl from public.profiles where id = uid;
+  if nm is null then raise exception 'プロフィールが見つかりません'; end if;
+  if rl = 'viewer' then raise exception '閲覧用アカウントは登録できません'; end if;
+  if exists (select 1 from public.leave_grants
+             where user_id = uid and kind = 'comp' and granted_date = p_date
+               and note = '休日当番代休（自動）') then
+    raise exception 'この日はすでに休日当番を登録済みです'; end if;
+  insert into public.events (title, event_date, created_by)
+    values (nm || ' 休日当番', p_date, uid);
+  insert into public.leave_grants (user_id, days, granted_date, expires_date, note, kind)
+    values (uid, 1, p_date, null, '休日当番代休（自動）', 'comp');
+end;
+$$;
+grant execute on function public.register_holiday_duty(date) to authenticated;
+
+-- 休日当番の取消：本人の当該予定＋自動付与の代休を削除
+create or replace function public.unregister_holiday_duty(p_date date)
+returns void language plpgsql security definer set search_path = 'public'
+as $$
+declare uid uuid := auth.uid(); nm text;
+begin
+  if uid is null then raise exception 'ログインが必要です'; end if;
+  select full_name into nm from public.profiles where id = uid;
+  delete from public.events
+    where created_by = uid and event_date = p_date and title = nm || ' 休日当番';
+  delete from public.leave_grants
+    where user_id = uid and kind = 'comp' and granted_date = p_date
+      and note = '休日当番代休（自動）';
+end;
+$$;
+grant execute on function public.unregister_holiday_duty(date) to authenticated;

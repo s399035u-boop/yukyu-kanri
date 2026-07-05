@@ -1446,7 +1446,7 @@ async function renderCalendar(prefix) {
     GET('leave_requests',
       `select=id,user_id,start_date,end_date,days,reason,leave_type,half_period,start_time,end_time,kind,profiles!leave_requests_user_id_fkey(full_name)&status=eq.approved&start_date=lte.${last}&end_date=gte.${first}`),
     GET('events',
-      `select=id,title,event_date&event_date=gte.${first}&event_date=lte.${last}&order=created_at.asc`),
+      `select=id,title,event_date,created_by&event_date=gte.${first}&event_date=lte.${last}&order=created_at.asc`),
     GET('profiles',
       `select=full_name,birth_month,birth_day&birth_month=eq.${m + 1}&birth_day=not.is.null`),
   ]);
@@ -1584,15 +1584,21 @@ function renderDayModal() {
   }
 
   // ── 予定 ──
-  html += '<div class="dm-section-title">📌 予定（診療変更・ミーティング等）</div>';
+  html += '<div class="dm-section-title">📌 予定（診療変更・休日当番・ミーティング等）</div>';
   if (!dayEvents.length) {
     html += '<div class="dm-empty">この日の予定はありません</div>';
   } else {
-    html += dayEvents.map(e => `
-      <div class="dm-row event">
-        <div><strong>${escHtml(e.title)}</strong></div>
-        ${isViewer() ? '' : `<button class="btn btn-ghost btn-sm" onclick="dmDeleteEvent('${e.id}')">削除</button>`}
-      </div>`).join('');
+    html += dayEvents.map(e => {
+      const isDuty = / 休日当番$/.test(e.title || '');
+      const own = e.created_by === currentUser.id;
+      let btn = '';
+      if (!isViewer()) {
+        if (isDuty) btn = own ? `<button class="btn btn-ghost btn-sm" onclick="dmCancelHolidayDuty()">取消</button>` : '';
+        else        btn = `<button class="btn btn-ghost btn-sm" onclick="dmDeleteEvent('${e.id}')">削除</button>`;
+      }
+      return `<div class="dm-row event">
+        <div><strong>${isDuty ? '🏥 ' : ''}${escHtml(e.title)}</strong></div>${btn}</div>`;
+    }).join('');
   }
 
   // ── アクション（閲覧用は非表示） ──
@@ -1600,6 +1606,7 @@ function renderDayModal() {
     html += '<div class="dm-actions">';
     if (!isPast) html += `<button class="btn btn-primary" onclick="dmToggle('dm-leave-form')">＋ 休暇をとる</button>`;
     html += `<button class="btn btn-ghost" onclick="dmToggle('dm-event-form')">＋ 予定を追加</button>`;
+    html += `<button class="btn btn-ghost" onclick="dmRegisterHolidayDuty()">🏥 休日当番（代休+1日）</button>`;
     html += '</div>';
   }
 
@@ -1800,6 +1807,29 @@ async function dmDeleteEvent(id) {
   const { error } = await DEL('events', 'id=eq.' + id);
   if (error) { showToast('削除できませんでした', true); return; }
   showToast('予定を削除しました');
+  await refreshCalAndModal();
+}
+
+// 休日当番の登録：予定に記入＋代休を1日自動付与（本人）
+async function dmRegisterHolidayDuty() {
+  if (!dayCtx) return;
+  const { iso } = dayCtx;
+  const [y, m, d] = iso.split('-').map(Number);
+  if (!confirm(`${m}月${d}日を「休日当番」として登録します。\n代休が1日、自動で付与されます。\nよろしいですか？`)) return;
+  const { error } = await rpc('register_holiday_duty', { p_date: iso });
+  if (error) { dmAlert('登録できませんでした：' + (error.message || JSON.stringify(error))); return; }
+  showToast('休日当番を登録し、代休を1日付与しました');
+  await refreshCalAndModal();
+}
+
+// 休日当番の取消：本人の予定と自動付与の代休（未使用分）を取消
+async function dmCancelHolidayDuty() {
+  if (!dayCtx) return;
+  const { iso } = dayCtx;
+  if (!confirm('この休日当番を取り消しますか？\n自動付与された代休（未使用分）も取り消されます。')) return;
+  const { error } = await rpc('unregister_holiday_duty', { p_date: iso });
+  if (error) { dmAlert('取消できませんでした：' + (error.message || '')); return; }
+  showToast('休日当番と代休を取り消しました');
   await refreshCalAndModal();
 }
 
