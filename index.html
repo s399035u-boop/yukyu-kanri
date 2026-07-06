@@ -1426,6 +1426,29 @@ function calMove(prefix, delta) {
   if (st.m > 11) { st.m = 0;  st.y++; }
   renderCalendar(prefix);
 }
+
+// スマホのスワイプで月切替（左スワイプ=翌月 / 右スワイプ=前月）
+let _swipeGuard = 0;
+function attachCalendarSwipe(gridId, prefix) {
+  const el = document.getElementById(gridId);
+  if (!el || el.dataset.swipe) return;
+  el.dataset.swipe = '1';
+  let sx = 0, sy = 0, st = 0;
+  el.addEventListener('touchstart', e => {
+    if (e.touches.length !== 1) { st = 0; return; }
+    sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now();
+  }, { passive: true });
+  el.addEventListener('touchend', e => {
+    if (!st) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - sx, dy = t.clientY - sy;
+    st = 0;
+    if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+      _swipeGuard = Date.now();          // 直後のタップ（日モーダル）を無視するため
+      calMove(prefix, dx < 0 ? 1 : -1);
+    }
+  }, { passive: true });
+}
 function calToday(prefix) {
   const n = new Date();
   const st = ensureCal(prefix);
@@ -1435,6 +1458,7 @@ function calToday(prefix) {
 
 async function renderCalendar(prefix) {
   const st = ensureCal(prefix);
+  attachCalendarSwipe(prefix + '-cal-grid', prefix);   // スワイプ月切替（初回のみ取付）
   const { y, m } = st;
   document.getElementById(prefix + '-cal-title').textContent = `${y}年${m + 1}月`;
 
@@ -1518,6 +1542,7 @@ async function renderCalendar(prefix) {
 let dayCtx = null;   // { prefix, iso }
 
 function openDayModal(prefix, iso) {
+  if (Date.now() - _swipeGuard < 450) return;   // スワイプ直後の誤タップは無視
   dayCtx = { prefix, iso };
   renderDayModal();
   document.getElementById('day-modal').classList.add('open');
